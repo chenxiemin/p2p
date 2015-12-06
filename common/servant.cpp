@@ -42,7 +42,7 @@ void ServantServer::OnData(shared_ptr<ReceiveData> data)
 {
 	shared_ptr<ReceiveMessage> message = ReceiveMessage::Wrap(data);
 	if (NULL == message.get()) {
-		LOGE("Invalid message size: %d %d", data->GetLength(), sizeof(Message));
+		LOGE("Invalid message size: %d %d", data->GetLength(), (int)sizeof(Message));
 		return;
 	}
 	LOGD("Server receive message type: %d", message->GetMessage()->type);
@@ -278,7 +278,7 @@ void ServantClient::OnData(std::shared_ptr<ReceiveData> data)
 	// get message
 	shared_ptr<ReceiveMessage> message = ReceiveMessage::Wrap(data);
 	if (NULL == message.get()) {
-		LOGE("Invalid message size: %d %d", data->GetLength(), sizeof(Message));
+		LOGE("Invalid message size: %d %d", data->GetLength(), (int)sizeof(Message));
 		return;
 	}
 #if 0
@@ -475,3 +475,4 @@ int ServantClient::DoConnect()
 
 }
 }
+

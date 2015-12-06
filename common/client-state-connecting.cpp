@@ -98,7 +98,7 @@ int ServantClient::ClientStateConnecting::OnMessage(shared_ptr<ReceiveMessage> m
 			(uint8_t *)&msg, sizeof(Message));
 		if (0 != res)
 			LOGE("Cannot send p2p connect to remote %s: %d",
-				PeerCandidate, res);
+				PeerCandidate->ToString().c_str(), res);
 		else
 			LOGI("Receiving REPLY_CONNECT from P2P server, sending connect request to peer: %s",
 				PeerCandidate->ToString().c_str());

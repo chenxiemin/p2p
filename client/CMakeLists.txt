@@ -11,6 +11,11 @@ if (MSVC)
 	target_link_libraries(p2pclient wsock32)
 endif ()
 
+if (CMAKE_COMPILER_IS_GNUCC)
+    set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -O3 -std=gnu++11 -D__STDC_CONSTANT_MACROS")
+	target_link_libraries(p2pclient pthread)
+endif ()
+
 # linked library
 # if (MSVC)
 # 	set(LD_PATH "${PROJECT_SOURCE_DIR}/third-party/lib/win32")

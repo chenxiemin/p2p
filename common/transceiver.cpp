@@ -1,4 +1,4 @@
-#include "Transceiver.h"
+#include "transceiver.h"
 #include "log.h"
 
 using namespace std;
@@ -24,7 +24,7 @@ int TransceiverU::Open()
 	if (0 == mlocalCandidate->Port()) {
 		struct sockaddr_in addr;
 		int len = sizeof(addr);
-		if (0 == getsockname(msocket, (struct sockaddr *)&addr, &len))
+		if (0 == getsockname(msocket, (struct sockaddr *)&addr, (socklen_t*)&len))
 			mlocalCandidate->SetPort(addr.sin_port);
 
 		if (0 != mlocalCandidate->Port()) {
@@ -111,3 +111,4 @@ shared_ptr<TransceiverU> TransceiverU::CreateTransceiverU(
 
 }
 }
+

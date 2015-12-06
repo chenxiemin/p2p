@@ -14,4 +14,12 @@
 #include <io.h>
 #endif
 
+#ifdef __linux__
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
 #endif
+
+#endif
+
