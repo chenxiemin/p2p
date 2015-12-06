@@ -44,6 +44,8 @@ class Candidate
 	public: bool Equal(const Candidate &rhs)
 		{ return mip == rhs.mip && mport == rhs.mport; }
 
+	public: bool Equal(std::shared_ptr<Candidate> rhs) { return Equal(*rhs); }
+
 	public: int Ip() { return mip; }
 	public: uint16_t Port() { return mport; }
 

@@ -102,28 +102,33 @@ void ServantServer::OnLogoutMessage(std::shared_ptr<ReceiveMessage> message)
 void ServantServer::OnRequestMessage(std::shared_ptr<ReceiveMessage> message)
 {
 	string requestClient = message->GetMessage()->u.client.uc.request.remoteName;
-	if (NULL == mclientList[requestClient].get()) {
-		LOGE("Cannot get request client: %s", requestClient.c_str());
-		return;
-	}
+	shared_ptr<Candidate> requestPeerCandidate;
+	if (NULL != mclientList[requestClient].get())
+		requestPeerCandidate = mclientList[requestClient];
+	else
+		LOGE("Requestd client not exist: %s", requestClient.c_str());
+
+	shared_ptr<Candidate> clientCandidate = message->GetRemoteCandidate();
 
 	// send reply
-	shared_ptr<Candidate> remoteCandidate = mclientList[requestClient];
-
 	Message msgReply;
 	msgReply.type = CXM_P2P_MESSAGE_REPLY_REQUEST;
-	msgReply.u.client.uc.replyRequest.remoteIp = remoteCandidate->Ip();
-	msgReply.u.client.uc.replyRequest.remotePort = remoteCandidate->Port();
+	if (NULL != requestPeerCandidate.get()) {
+		msgReply.u.client.uc.replyRequest.result = CXM_P2P_REPLY_REQUEST_RESULT_OK;
+		msgReply.u.client.uc.replyRequest.remoteIp = requestPeerCandidate->Ip();
+		msgReply.u.client.uc.replyRequest.remotePort = requestPeerCandidate->Port();
+	} else {
+		msgReply.u.client.uc.replyRequest.result = CXM_P2P_REPLY_REQUEST_RESULT_UNKNOWN_PEER;
+	}
 
-#if 0
-	int res = MessageSend(msocket, &msgReply, MessageCandidate(pmsg));
+	int res = this->mtransceiver->SendTo(clientCandidate,
+		(uint8_t *)&msgReply, sizeof(Message));
 	if (0 != res)
 		LOGE("Cannot send reply to client: %d", res);
-	LOGD("Reply request to: client %s address %s", 
-		requestClient.c_str(), remoteCandidate->ToString().c_str());
-#else
-	assert(0);
-#endif
+	else
+		LOGD("Reply request client %s peer address: %s", 
+			requestClient.c_str(), NULL != requestPeerCandidate ?
+			requestPeerCandidate->ToString().c_str() : "null");
 }
 
 void ServantServer::OnConnectMessage(std::shared_ptr<ReceiveMessage> message)
@@ -139,23 +144,23 @@ void ServantServer::OnConnectMessage(std::shared_ptr<ReceiveMessage> message)
 		return;
 	}
 
-#if 0
 	Message msgReply;
-	memset(&msgReply, 0, sizeof(msgReply));
 	msgReply.type = CXM_P2P_MESSAGE_REPLY_CONNECT;
-	int res = MessageSend(msocket, &msgReply, mclientList[masterClient]);
+	int res = this->mtransceiver->SendTo(mclientList[masterClient],
+		(uint8_t *)&msgReply, sizeof(Message));
 	if (res < 0) {
 		LOGE("Cannot send p2p reply connect: %d", res);
 		return;
 	}
-	res = MessageSend(msocket, &msgReply, mclientList[slaveClient]);
+	res = this->mtransceiver->SendTo(mclientList[slaveClient],
+		(uint8_t *)&msgReply, sizeof(Message));
 	if (res < 0) {
 		LOGE("Cannot send p2p reply connect: %d", res);
 		return;
 	}
-#else
-	assert(0);
-#endif
+	LOGD("Sending REPLY_CONNECT to master %s %s and client %s %s",
+		masterClient.c_str(), mclientList[masterClient]->ToString().c_str(),
+		slaveClient.c_str(), mclientList[slaveClient]->ToString().c_str());
 }
 
 ServantClient::ServantClient(const char *ip, uint16_t port)
@@ -167,9 +172,9 @@ ServantClient::ServantClient(const char *ip, uint16_t port)
 
 	// init transport
 	mserverCandidate = shared_ptr<Candidate>(new Candidate(ip, port));
-	mserverTransport = shared_ptr<TransceiverU>(new TransceiverU());
-	mserverTransport->SetLocalCandidate(shared_ptr<Candidate>(new Candidate((int)0, 0)));
-	mserverTransport->SetSink(this);
+	mtransport = shared_ptr<TransceiverU>(new TransceiverU());
+	mtransport->SetLocalCandidate(shared_ptr<Candidate>(new Candidate((int)0, 0)));
+	mtransport->SetSink(this);
 
 	// LOGOUT is the beginning state
 	this->SetStateInternal(SERVANT_CLIENT_LOGOUT);
@@ -177,9 +182,9 @@ ServantClient::ServantClient(const char *ip, uint16_t port)
 
 ServantClient::~ServantClient()
 {
-	if (NULL != mserverTransport.get()) {
-		mserverTransport->Close();
-		mserverTransport.reset();
+	if (NULL != mtransport.get()) {
+		mtransport->Close();
+		mtransport.reset();
 	}
 	if (NULL != meventThread.get()) {
 		meventThread->Join();
@@ -192,7 +197,7 @@ int ServantClient::Call()
 	assert(NULL != mstate.get());
 	assert(NULL != meventThread.get());
 	if (mname.length() <= 0 || mname.length() > CLIENT_NAME_LENGTH ||
-		mremote.length() <= 0 || mremote.length() > CLIENT_NAME_LENGTH) {
+		mremotePeer.length() <= 0 || mremotePeer.length() > CLIENT_NAME_LENGTH) {
 		LOGE("Invalid argument: %s", mname.c_str());
 		return -1;
 	}
@@ -224,32 +229,44 @@ void ServantClient::Hangup()
 	LOGD("Hangup success");
 }
 
-#if 0
-int ServantClient::Send(const char *buffer, int len)
+int ServantClient::SendTo(const uint8_t *buffer, int len)
 {
 	assert(NULL != mstate.get());
-	return mstate->Send(buffer, len);
+	return mstate->SendTo(buffer, len);
 }
-#endif
 
 void ServantClient::OnEvent(int type, shared_ptr<IEventArgs> args)
 {
+#if 0
 	LOGD("Client OnEvent: %d", type);
+#endif
 	switch (type) {
-	case SERVANT_CLIENT_EVENT_LOGIN:
-		this->mstate->Login();
+	case SERVANT_CLIENT_EVENT_LOGIN: {
+		int res = this->mstate->Login();
+		if (0 != res)
+			LOGE("Error when procese EVENT_LOGIN by state %d: res %d",
+				this->GetState(), res);
 		break;
-	case SERVANT_CLIENT_EVENT_LOGOUT:
+	} case SERVANT_CLIENT_EVENT_LOGOUT: {
 		this->mstate->Logout();
 		break;
-	case SERVANT_CLIENT_EVENT_ON_DATA: {
+	} case SERVANT_CLIENT_EVENT_CONNECT: {
+		int res = this->mstate->Connect();
+		if (0 != res)
+			LOGE("Error when process EVENT_CONNECT by state %d: res %d",
+				this->GetState(), res);
+		break;
+	} case SERVANT_CLIENT_EVENT_ON_DATA: {
 		shared_ptr<ReceiveMessage> message = dynamic_pointer_cast<ReceiveMessage>(args);
 		if (NULL == message.get()) {
 			LOGE("Invalid args when ON_DATA: %p", args.get());
 			break;
 		}
 
-		this->mstate->OnMessage(message);
+		int res = this->mstate->OnMessage(message);
+		if (0 != res)
+			LOGE("Error when process EVENT_ON_DATA by state %d: res %d",
+				this->GetState(), res);
 		break;
 	} default:
 		break;
@@ -264,54 +281,15 @@ void ServantClient::OnData(std::shared_ptr<ReceiveData> data)
 		LOGE("Invalid message size: %d %d", data->GetLength(), sizeof(Message));
 		return;
 	}
+#if 0
 	LOGD("Client receive message type: %d", message->GetMessage()->type);
+#endif
 
 	// swith thread
 	this->meventThread->PutEvnet(SERVANT_CLIENT_EVENT_ON_DATA, message);
 }
 
 #if 0
-int ServantClient::Request()
-{
-#if 0
-	if (SERVANT_CLIENT_LOGIN != mstatus) {
-		LOGE("Invalid status for request: %d", mstatus);
-		return -1;
-	}
-	if (mremote.length() == 0) {
-		LOGE("Invalid remote name: %s", mremote.c_str());
-		return -1;
-	}
-
-	int res = -1;
-	do {
-		// timeoutd wait
-		unique_lock<std::mutex> lock(mmutex);
-
-		res = this->DoRequest();
-		if (0 != res) {
-			LOGE("Cannot reeuest remote address: %d", res);
-			break;
-		}
-
-		mstatus = SERVANT_CLIENT_REQUESTING;
-		LOGD("Waiting for server reply request");
-		mcv.wait_for(lock, seconds(1));
-
-		if (SERVANT_CLIENT_REQUESTED != mstatus) {
-			res = -1;
-			break;
-		}
-
-		return 0;
-	} while (0);
-
-	mstatus = SERVANT_CLIENT_LOGIN; // retrieve status
-	return res;
-#else
-	return -1;
-#endif
-}
 
 int ServantClient::Connect()
 {
@@ -388,25 +366,6 @@ shared_ptr<ServantClient::ClientState> ServantClient::SetStateInternal(SERVANT_C
 	if (NULL != oldState.get())
 		LOGI("Change state to %d from %d", mstate->State, oldState->State);
 	return oldState;
-}
-
-void ServantClient::OnReplyRequest(const Message *pmsg)
-{
-#if 0
-	if (mstatus != SERVANT_CLIENT_REQUESTING) {
-		LOGE("Invalid status when receive reply request: %d", mstatus);
-		return;
-	}
-
-	lock_guard<mutex> lock(mmutex); // lock first
-
-	mremoteCandidate = shared_ptr<Candidate>(new Candidate(
-		pmsg->umsg.replyRequest.remoteIp, pmsg->umsg.replyRequest.remotePort));
-	mstatus = SERVANT_CLIENT_REQUESTED;
-	LOGI("Receive remote candidate: %s", mremoteCandidate->ToString().c_str());
-	mcv.notify_one(); // notify request()
-#else
-#endif
 }
 
 void ServantClient::OnReplyConnect(const Message *pmsg)
@@ -490,26 +449,6 @@ void ServantClient::OnReplyP2PConnect(const Message *pmsg)
 	mstatus = SERVANT_CLIENT_CONNECTED;
 	mcv.notify_one(); // notify request()
 #else
-#endif
-}
-
-int ServantClient::DoRequest()
-{
-#if 0
-	Message msg;
-	memset(&msg, 0, sizeof(msg));
-	msg.type = CXM_P2P_MESSAGE_REQUEST;
-	strncpy(msg.umsg.request.remoteName, mremote.c_str(), CLIENT_NAME_LENGTH);
-
-	int res = MessageSend(msocket, &msg, mserverCandidate);
-	if (0 != res) {
-		LOGE("Cannot send request message: %d", res);
-		return -1;
-	}
-
-	return 0;
-#else
-	return -1;
 #endif
 }
 

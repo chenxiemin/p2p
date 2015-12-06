@@ -57,7 +57,7 @@ class IReveiverSinkU
 
 class TransceiverU : public cxm::util::IRunnable
 {
-	private: const static int MAX_RECEIVE_BUFFER_SIZE = 1024 * 10;
+	public: const static int MAX_RECEIVE_BUFFER_SIZE = 1024 * 10;
 
 	private: std::shared_ptr<cxm::util::Thread> mthread;
 	private: bool misRun;

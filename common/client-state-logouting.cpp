@@ -19,15 +19,15 @@ void ServantClient::ClientStateLogouting::Logout()
 	msg.type = CXM_P2P_MESSAGE_LOGOUT;
 	strncpy(msg.u.client.clientName, PClient->mname.c_str(), CLIENT_NAME_LENGTH);
 
-	int res = PClient->mserverTransport->SendTo(PClient->mserverCandidate,
+	int res = PClient->mtransport->SendTo(PClient->mserverCandidate,
 		(uint8_t *)&msg, sizeof(Message));
 	if (0 != res)
 		LOGE("Cannot send logout message: %d", res);
 
 	// close server transport
-	if (NULL != PClient->mserverTransport.get()) {
-		PClient->mserverTransport->Close();
-		PClient->mserverTransport.reset();
+	if (NULL != PClient->mtransport.get()) {
+		PClient->mtransport->Close();
+		PClient->mtransport.reset();
 	}
 
 	// notify logout

@@ -68,12 +68,12 @@ int MessageValidate(const Message *pmsg)
 			return -1;
 		}
 	case CXM_P2P_MESSAGE_DO_P2P_CONNECT:
-		if (pmsg->u.client.uc.p2p.key[CLIENT_NAME_LENGTH] != '\0') {
+		if (pmsg->u.p2p.up.p2p.key[CLIENT_NAME_LENGTH] != '\0') {
 			LOGE("Invalid end of remoteName");
 			return -1;
 		}
 	case CXM_P2P_MESSAGE_REPLY_P2P_CONNECT:
-		if (pmsg->u.client.uc.p2pReply.key[CLIENT_NAME_LENGTH] != '\0') {
+		if (pmsg->u.p2p.up.p2pReply.key[CLIENT_NAME_LENGTH] != '\0') {
 			LOGE("Invalid end of remoteName");
 			return -1;
 		}

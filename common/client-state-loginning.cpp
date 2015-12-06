@@ -15,11 +15,11 @@ namespace p2p {
 
 int ServantClient::ClientStateLogining::Login()
 {
-	if (NULL != PClient->mserverTransport)
+	if (NULL != PClient->mtransport)
 		LOGE("ServerTransport do not free last");
 
 	// open transport
-	int res = PClient->mserverTransport->Open();
+	int res = PClient->mtransport->Open();
 	if (0 != res) {
 		LOGE("Cannot open transport: %d", res);
 		PClient->SetStateInternal(SERVANT_CLIENT_LOGOUT);
@@ -46,6 +46,8 @@ void ServantClient::ClientStateLogining::Logout()
 
 void ServantClient::ClientStateLogining::OnTimer()
 {
+	unique_lock<mutex> lock(mmutex);
+
 	// send login message
 	Message msg;
 	memset(&msg, 0, sizeof(msg));
@@ -54,7 +56,7 @@ void ServantClient::ClientStateLogining::OnTimer()
 	msg.u.client.uc.login.clientPrivateIp = 0; // TODO set private candidate
 	msg.u.client.uc.login.clientPrivatePort = 0;
 
-	PClient->mserverTransport->SendTo(PClient->mserverCandidate,
+	PClient->mtransport->SendTo(PClient->mserverCandidate,
 		(uint8_t *)&msg, sizeof(Message));
 
 	LOGD("Sending login request to %s...",
@@ -69,7 +71,10 @@ int ServantClient::ClientStateLogining::OnMessage(shared_ptr<ReceiveMessage> mes
 	}
 
 	// receive login success message, goto login state
-	PClient->SetStateInternal(SERVANT_CLIENT_LOGIN);
+	shared_ptr<ServantClient::ClientState> oldState = PClient->SetStateInternal(SERVANT_CLIENT_LOGIN);
+
+	// start p2p connection
+	PClient->meventThread->PutEvnet(SERVANT_CLIENT_EVENT_CONNECT);
 
 	return 0;
 }

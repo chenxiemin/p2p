@@ -1,0 +1,3 @@
+Server:
+	1. client timeout
+	2. remove client if socket error

@@ -62,7 +62,7 @@ int TransceiverU::SendTo(std::shared_ptr<Candidate> remote, const uint8_t *buf, 
 		return -1;
 
 	return sendMessage(msocket, (char *)buf,
-		len, remote->Ip(), remote->Port(), false);
+		len, remote->Ip(), remote->Port(), false) ? 0 : 1;
 }
 
 void TransceiverU::Run()

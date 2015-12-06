@@ -4,14 +4,19 @@
 #include "servant.h"
 #include "servant-agent.h"
 #include "log.h"
+#include "timer.h"
 
 using namespace std;
+using namespace std::chrono;
+using namespace cxm::util;
 using namespace cxm::p2p;
 
-class MyAgent : public IServantClientSink
+class MyAgent : public IServantClientSink, public ITimerSink
 {
 	string mstr;
 	shared_ptr<ServantClient> msc;
+	shared_ptr<Timer> mtimer;
+	int count;
 
 	public: MyAgent(const char *ip, const char *name, const char *remote)
 	{
@@ -39,27 +44,35 @@ class MyAgent : public IServantClientSink
 	public: virtual void OnConnect()
 	{
 		LOGI("OnConnect");
-#if 0
-		int res = msc->Send(mstr.c_str(), mstr.length());
-		if (mstr.length() != res)
-			LOGE("Cannot send buffer: %d %d", mstr.length(), res);
-#endif
+		count = 0;
+		mtimer = shared_ptr<Timer>(new Timer(this, milliseconds(100)));
+		mtimer->Start(true);
 	}
 
 	public: virtual void OnDisconnect()
 	{
-
+		LOGI("OnDisconnect");
+		mtimer->Stop();
+		mtimer.reset();
 	}
 
-	public: virtual void OnData(const char *data, int len)
+	public: virtual void OnTimer()
 	{
-#if 0
-		int res = msc->Send(mstr.c_str(), mstr.length());
-		if (mstr.length() != res)
-			LOGE("Cannot send buffer: %d %d", mstr.length(), res);
+		stringstream ss;
+		ss << "Hello " << msc->GetRemote();
+		ss << " I'm " << msc->GetName();
+		ss << ": " << count++;
+		string str = ss.str();
+		msc->SendTo((uint8_t *)str.c_str(), str.length());
+	}
 
-		cxm::util::Thread::Sleep(100);
-#endif
+	public: virtual void OnData(const uint8_t *buf, int len)
+	{
+		char *bufstr = new char[len + 1];
+		memcpy(bufstr, buf, len);
+		bufstr[len] = '\0';
+		LOGI("OnData: %s", bufstr);
+		delete []bufstr;
 	}
 
 	public: virtual void OnError(SERVANT_CLIENT_ERROR_T error, void *opaque)

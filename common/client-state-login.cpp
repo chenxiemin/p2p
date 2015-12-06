@@ -1,5 +1,3 @@
-
-
 #include "servant.h"
 #include "log.h"
 
@@ -10,17 +8,19 @@ using namespace cxm::util;
 namespace cxm {
 namespace p2p {
 
+int ServantClient::ClientStateLogin::Connect()
+{
+	shared_ptr<ServantClient::ClientState> oldState = PClient->SetStateInternal(SERVANT_CLIENT_CONNECTING);
+	PClient->meventThread->PutEvnet(SERVANT_CLIENT_EVENT_CONNECT);
+	return 0;
+}
+
 void ServantClient::ClientStateLogin::Logout()
 {
 	// change to logouting state
 	shared_ptr<ServantClient::ClientState> oldState = PClient->SetStateInternal(SERVANT_CLIENT_LOGOUTING);
 	// resend logout event
 	PClient->meventThread->PutEvnet(SERVANT_CLIENT_EVENT_LOGOUT);
-}
-
-int ServantClient::ClientStateLogin::OnMessage(shared_ptr<ReceiveMessage> message)
-{
-	return -1;
 }
 
 }
