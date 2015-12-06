@@ -32,7 +32,7 @@ class SafeQueue
 
     public: bool Put(std::shared_ptr<T> item)
     {
-        std::lock_guard<std::mutex> lock(mmutex);
+		std::unique_lock<std::mutex> lock(mmutex);
 
         mqueue.push(item);
         mcv.notify_one();

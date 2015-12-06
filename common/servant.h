@@ -100,14 +100,18 @@ class ServantClient : cxm::p2p::IReveiverSinkU, cxm::util::IEventSink
 		// Login state indicate that
 		// the client has connected to the P2P server
 		SERVANT_CLIENT_LOGIN,
+		SERVANT_CLIENT_LOGOUTING,
+#if 0
 		SERVANT_CLIENT_REQUESTING,
 		// Requested state indicate that the client
 		// has requested the peer address which need to be connected
 		SERVANT_CLIENT_REQUESTED,
+#endif
 		SERVANT_CLIENT_CONNECTING,
 		// Connected state indicate that the client
 		// has already connected to the peer
-		SERVANT_CLIENT_CONNECTED
+		SERVANT_CLIENT_CONNECTED,
+		SERVANT_CLIENT_DISCONNECTING,
 	} SERVANT_CLIENT_STATE_T;
 
 	private: struct ClientState
@@ -120,12 +124,18 @@ class ServantClient : cxm::p2p::IReveiverSinkU, cxm::util::IEventSink
 		virtual ~ClientState() { }
 
 		virtual int Login() { return -1; };
-		virtual void Logout();
+		virtual void Logout() { };
+#if 0
 		// request remote candidate address
 		virtual int Request() { return -1; };
 		// connect to remote candidate
+#endif
 		virtual int Connect() { return -1; };
+		virtual int Disconnect() { return -1; };
+
+#if 0
 		virtual int Send(const char *buffer, int len) { return -1; }
+#endif
 		virtual int OnMessage(std::shared_ptr<ReceiveMessage> pmsg) { return -1; };
 	};
 	private: struct ClientStateLogout : public ClientState
@@ -167,25 +177,17 @@ class ServantClient : cxm::p2p::IReveiverSinkU, cxm::util::IEventSink
 		ClientStateLogin(ServantClient *client) :
 			ClientState(SERVANT_CLIENT_LOGIN, client) { }
 
+		virtual void Logout();
 		virtual int OnMessage(std::shared_ptr<ReceiveMessage> message);
 	};
-	private: struct ClientStateRequesting : public ClientState
+	private: struct ClientStateLogouting : public ClientState
 	{
 		SERVANT_CLIENT_STATE_T State;
 
-		ClientStateRequesting(ServantClient *client) :
-			ClientState(SERVANT_CLIENT_REQUESTING, client) { }
+		ClientStateLogouting(ServantClient *client) :
+			ClientState(SERVANT_CLIENT_LOGOUTING, client) { }
 
-		virtual int OnMessage(std::shared_ptr<ReceiveMessage> message);
-	};
-	private: struct ClientStateRequested : public ClientState
-	{
-		SERVANT_CLIENT_STATE_T State;
-
-		ClientStateRequested(ServantClient *client) :
-			ClientState(SERVANT_CLIENT_REQUESTED, client) { }
-
-		virtual int OnMessage(std::shared_ptr<ReceiveMessage> message);
+		virtual void Logout();
 	};
 	private: struct ClientStateConnecting : public ClientState
 	{
@@ -194,7 +196,7 @@ class ServantClient : cxm::p2p::IReveiverSinkU, cxm::util::IEventSink
 		ClientStateConnecting(ServantClient *client) :
 			ClientState(SERVANT_CLIENT_CONNECTING, client) { }
 
-		virtual int OnMessage(std::shared_ptr<ReceiveMessage> message);
+		virtual void Logout();
 	};
 	private: struct ClientStateConnected : public ClientState
 	{
@@ -203,11 +205,21 @@ class ServantClient : cxm::p2p::IReveiverSinkU, cxm::util::IEventSink
 		ClientStateConnected(ServantClient *client) :
 			ClientState(SERVANT_CLIENT_CONNECTED, client) { }
 
-		virtual int OnMessage(std::shared_ptr<ReceiveMessage> message);
+		virtual void Logout();
+	};
+	private: struct ClientStateDisconnecting : public ClientState
+	{
+		SERVANT_CLIENT_STATE_T State;
+
+		ClientStateDisconnecting(ServantClient *client) :
+			ClientState(SERVANT_CLIENT_DISCONNECTING, client) { }
+
+		virtual void Logout();
 	};
 
 	private: typedef enum {
 		SERVANT_CLIENT_EVENT_LOGIN,
+		SERVANT_CLIENT_EVENT_LOGOUT,
 		SERVANT_CLIENT_EVENT_ON_DATA,
 	} SERVANT_CLIENT_EVENT_T;
 
@@ -222,11 +234,15 @@ class ServantClient : cxm::p2p::IReveiverSinkU, cxm::util::IEventSink
 
 	private: std::mutex mstateMutex;
 	private: std::shared_ptr<ClientState> mstate;
+
+	private: std::mutex mlogoutMutex;
+	private: std::condition_variable mlogoutCV;
 			 
 	private: IServantClientSink *mpsink;
 
 	public: ServantClient(const char *serverIp,
 		uint16_t port = ServantServer::SERVANT_SERVER_PORT);
+	public: virtual ~ServantClient();
 
 	public: void SetSink(IServantClientSink *sink) { mpsink = sink; }
 	public: void SetName(std::string name) { mname = name; }
@@ -240,13 +256,15 @@ class ServantClient : cxm::p2p::IReveiverSinkU, cxm::util::IEventSink
 	public: int Call();
 	public: void Hangup();
 
+#if 0
 	public: int Send(const char *data, int len);
 
-	public: void Logout();
 	// request remote candidate address
 	public: int Request();
 	// connect to remote candidate
 	public: int Connect();
+	public: void Disconnect();
+#endif
 	
 	private: virtual void OnEvent(int type, std::shared_ptr<cxm::util::IEventArgs> args);
 	private: virtual void OnData(std::shared_ptr<ReceiveData> data);

@@ -42,6 +42,7 @@ int TransceiverU::Open()
 	mthread = shared_ptr<Thread>(new Thread(this, "Network"));
 	mthread->Start();
 
+	LOGD("Open local candidate: %s", mlocalCandidate->ToString().c_str());
 	return 0;
 }
 

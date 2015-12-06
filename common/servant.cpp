@@ -160,31 +160,77 @@ void ServantServer::OnConnectMessage(std::shared_ptr<ReceiveMessage> message)
 
 ServantClient::ServantClient(const char *ip, uint16_t port)
 {
+	// start event thread
+	meventThread = shared_ptr<UnifyEventThread>(new UnifyEventThread("ServantClient"));
+	meventThread->SetSink(this);
+	meventThread->Start();
+
+	// init transport
 	mserverCandidate = shared_ptr<Candidate>(new Candidate(ip, port));
 	mserverTransport = shared_ptr<TransceiverU>(new TransceiverU());
 	mserverTransport->SetLocalCandidate(shared_ptr<Candidate>(new Candidate((int)0, 0)));
 	mserverTransport->SetSink(this);
 
+	// LOGOUT is the beginning state
 	this->SetStateInternal(SERVANT_CLIENT_LOGOUT);
+}
+
+ServantClient::~ServantClient()
+{
+	if (NULL != mserverTransport.get()) {
+		mserverTransport->Close();
+		mserverTransport.reset();
+	}
+	if (NULL != meventThread.get()) {
+		meventThread->Join();
+		meventThread.reset();
+	}
 }
 
 int ServantClient::Call()
 {
 	assert(NULL != mstate.get());
-	return mstate->Login();
+	assert(NULL != meventThread.get());
+	if (mname.length() <= 0 || mname.length() > CLIENT_NAME_LENGTH ||
+		mremote.length() <= 0 || mremote.length() > CLIENT_NAME_LENGTH) {
+		LOGE("Invalid argument: %s", mname.c_str());
+		return -1;
+	}
+
+	if (SERVANT_CLIENT_LOGOUT != this->GetState()) {
+		LOGE("Invalid state during call: %d", this->GetState());
+		return -1;
+	}
+
+	// put login event
+	this->meventThread->PutEvnet(SERVANT_CLIENT_EVENT_LOGIN);
+	return 0;
 }
 
 void ServantClient::Hangup()
 {
 	assert(NULL != mstate.get());
-	mstate->Logout();
+	assert(NULL != meventThread.get());
+	if (SERVANT_CLIENT_LOGOUT == this->GetState())
+		return;
+
+	unique_lock<mutex> lock(mlogoutMutex);
+
+	// put login event
+	this->meventThread->PutEvnet(SERVANT_CLIENT_EVENT_LOGOUT);
+	// waiting for logout event arrive
+	LOGD("Hangup to wait logout event arriving");
+	mlogoutCV.wait(lock);
+	LOGD("Hangup success");
 }
 
+#if 0
 int ServantClient::Send(const char *buffer, int len)
 {
 	assert(NULL != mstate.get());
 	return mstate->Send(buffer, len);
 }
+#endif
 
 void ServantClient::OnEvent(int type, shared_ptr<IEventArgs> args)
 {
@@ -192,6 +238,9 @@ void ServantClient::OnEvent(int type, shared_ptr<IEventArgs> args)
 	switch (type) {
 	case SERVANT_CLIENT_EVENT_LOGIN:
 		this->mstate->Login();
+		break;
+	case SERVANT_CLIENT_EVENT_LOGOUT:
+		this->mstate->Logout();
 		break;
 	case SERVANT_CLIENT_EVENT_ON_DATA: {
 		shared_ptr<ReceiveMessage> message = dynamic_pointer_cast<ReceiveMessage>(args);
@@ -221,101 +270,7 @@ void ServantClient::OnData(std::shared_ptr<ReceiveData> data)
 	this->meventThread->PutEvnet(SERVANT_CLIENT_EVENT_ON_DATA, message);
 }
 
-void ServantClient::ClientState::Logout()
-{
-	// send message
-	Message msg;
-	msg.type = CXM_P2P_MESSAGE_LOGOUT;
-	strncpy(msg.u.client.clientName, PClient->mname.c_str(), CLIENT_NAME_LENGTH);
-
-	int res = PClient->mserverTransport->SendTo(PClient->mserverCandidate,
-		(uint8_t *)&msg, sizeof(Message));
-	if (0 != res)
-		LOGE("Cannot send logout message: %d", res);
-
-	// close server transport
-	if (NULL != PClient->mserverTransport.get()) {
-		PClient->mserverTransport->Close();
-		PClient->mserverTransport.reset();
-	}
-
-	if (NULL != PClient->meventThread.get()) {
-		// wait for thread stop
-		PClient->meventThread->Join();
-		PClient->meventThread.reset();
-	}
-}
-
-int ServantClient::ClientStateLogout::Login()
-{
-	if (PClient->mname.length() <= 0 || PClient->mname.length() > CLIENT_NAME_LENGTH ||
-		PClient->mremote.length() <= 0 || PClient->mremote.length() > CLIENT_NAME_LENGTH) {
-		LOGE("Invalid argument: %s", PClient->mname.c_str());
-		return -1;
-	}
-
-	// hold on self to prevent deleted
-	shared_ptr<ServantClient::ClientState> oldState = PClient->SetStateInternal(SERVANT_CLIENT_LOGINING);
-
-	// open transport
-	int res = PClient->mserverTransport->Open();
-	if (0 != res) {
-		LOGE("Cannot open transport: %d", res);
-		return -1;
-	}
-
-	// start event thread
-	PClient->meventThread = shared_ptr<UnifyEventThread>(new UnifyEventThread("ServantClient"));
-	PClient->meventThread->SetSink(PClient);
-	PClient->meventThread->Start();
-
-	// put login event
-	PClient->meventThread->PutEvnet(SERVANT_CLIENT_EVENT_LOGIN);
-
-	return 0;
-}
-
-
-
-int ServantClient::ClientStateLogin::OnMessage(shared_ptr<ReceiveMessage> message)
-{
-	return -1;
-}
-
-int ServantClient::ClientStateRequesting::OnMessage(shared_ptr<ReceiveMessage> message)
-{
-	return -1;
-}
-
-int ServantClient::ClientStateRequested::OnMessage(shared_ptr<ReceiveMessage> message)
-{
-	return -1;
-}
-
-int ServantClient::ClientStateConnecting::OnMessage(shared_ptr<ReceiveMessage> message)
-{
-	return -1;
-}
-
-int ServantClient::ClientStateConnected::OnMessage(shared_ptr<ReceiveMessage> message)
-{
-	return -1;
-}
-
-void ServantClient::Logout()
-{
 #if 0
-	if (mstatus == SERVANT_CLIENT_UNLOGIN)
-		return;
-
-	int res = DoLogout();
-	if (0 != res)
-		LOGE("Cannot logout for %s: %d", mname.c_str(), res);
-	mstatus = SERVANT_CLIENT_UNLOGIN;
-#else
-#endif
-}
-
 int ServantClient::Request()
 {
 #if 0
@@ -398,6 +353,7 @@ int ServantClient::Connect()
 	return -1;
 #endif
 }
+#endif
 
 shared_ptr<ServantClient::ClientState> ServantClient::SetStateInternal(SERVANT_CLIENT_STATE_T state)
 {
@@ -412,17 +368,17 @@ shared_ptr<ServantClient::ClientState> ServantClient::SetStateInternal(SERVANT_C
 	case SERVANT_CLIENT_LOGIN:
 		mstate = shared_ptr<ClientState>(new ClientStateLogin(this));
 		break;
-	case SERVANT_CLIENT_REQUESTING:
-		mstate = shared_ptr<ClientState>(new ClientStateRequesting(this));
-		break;
-	case SERVANT_CLIENT_REQUESTED:
-		mstate = shared_ptr<ClientState>(new ClientStateRequested(this));
+	case SERVANT_CLIENT_LOGOUTING:
+		mstate = shared_ptr<ClientState>(new ClientStateLogouting(this));
 		break;
 	case SERVANT_CLIENT_CONNECTING:
 		mstate = shared_ptr<ClientState>(new ClientStateConnecting(this));
 		break;
 	case SERVANT_CLIENT_CONNECTED:
 		mstate = shared_ptr<ClientState>(new ClientStateConnected(this));
+		break;
+	case SERVANT_CLIENT_DISCONNECTING:
+		mstate = shared_ptr<ClientState>(new ClientStateDisconnecting(this));
 		break;
 	default:
 		mstate = shared_ptr<ClientState>(new ClientStateLogout(this));

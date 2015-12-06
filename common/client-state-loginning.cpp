@@ -15,6 +15,17 @@ namespace p2p {
 
 int ServantClient::ClientStateLogining::Login()
 {
+	if (NULL != PClient->mserverTransport)
+		LOGE("ServerTransport do not free last");
+
+	// open transport
+	int res = PClient->mserverTransport->Open();
+	if (0 != res) {
+		LOGE("Cannot open transport: %d", res);
+		PClient->SetStateInternal(SERVANT_CLIENT_LOGOUT);
+		return -1;
+	}
+
 	this->OnTimer();
 
 	mtimer = shared_ptr<Timer>(new Timer(this, milliseconds(5000)));
@@ -25,9 +36,12 @@ int ServantClient::ClientStateLogining::Login()
 
 void ServantClient::ClientStateLogining::Logout()
 {
+	// stop self timer first
 	this->mtimer->Stop();
 
-	ClientState::Logout();
+	// change to logouting state
+	shared_ptr<ServantClient::ClientState> oldState = PClient->SetStateInternal(SERVANT_CLIENT_LOGOUTING);
+	PClient->meventThread->PutEvnet(SERVANT_CLIENT_EVENT_LOGOUT);
 }
 
 void ServantClient::ClientStateLogining::OnTimer()

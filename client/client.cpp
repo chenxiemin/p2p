@@ -39,10 +39,11 @@ class MyAgent : public IServantClientSink
 	public: virtual void OnConnect()
 	{
 		LOGI("OnConnect");
-
+#if 0
 		int res = msc->Send(mstr.c_str(), mstr.length());
 		if (mstr.length() != res)
 			LOGE("Cannot send buffer: %d %d", mstr.length(), res);
+#endif
 	}
 
 	public: virtual void OnDisconnect()
@@ -52,11 +53,13 @@ class MyAgent : public IServantClientSink
 
 	public: virtual void OnData(const char *data, int len)
 	{
+#if 0
 		int res = msc->Send(mstr.c_str(), mstr.length());
 		if (mstr.length() != res)
 			LOGE("Cannot send buffer: %d %d", mstr.length(), res);
 
 		cxm::util::Thread::Sleep(100);
+#endif
 	}
 
 	public: virtual void OnError(SERVANT_CLIENT_ERROR_T error, void *opaque)
