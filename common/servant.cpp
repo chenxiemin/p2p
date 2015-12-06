@@ -7,111 +7,101 @@
 
 #include "servant.h"
 #include "log.h"
-#include "message.h"
 
 using namespace std;
 using namespace std::chrono;
 using namespace cxm::util;
 
-ServantServer::ServantServer(const char *ip, uint16_t port) :
-	misRun(false), msocket(INVALID_SOCKET)
+namespace cxm {
+namespace p2p {
+
+ServantServer::ServantServer(const char *ip, uint16_t port)
 {
-	mcandidate = shared_ptr<Candidate>(new Candidate(ip, port));
+	mtransceiver = shared_ptr<TransceiverU>(new TransceiverU());
+	mtransceiver->SetLocalCandidate(shared_ptr<Candidate>(new Candidate(ip, port)));
+	mtransceiver->SetSink(this);
 }
 
 int ServantServer::Start()
 {
-	if (misRun) {
-		LOGE("Already start");
-		return -1;
-	}
+	int res = mtransceiver->Open();
+	if (0 == res)
+		LOGI("Server start to listen at: %s", mtransceiver->GetLocalCandidate()->ToString().c_str());
+	else
+		LOGI("Fail to start server at: %s", mtransceiver->GetLocalCandidate()->ToString().c_str());
 
-	msocket = openPort(mcandidate->Port(), 0, false);
-	if (INVALID_SOCKET == msocket) {
-		LOGE("Cannot open socket");
-		return -1;
-	}
-
-	misRun = true;
-	mthread = shared_ptr<Thread>(new Thread(this, "ServantServer"));
-	mthread->Start();
-
-	LOGI("ServantServer listen on: %s", mcandidate->ToString().c_str());
-	return 0;
+	return res;
 }
 
 void ServantServer::Stop()
 {
-	if (!misRun)
+	mtransceiver->Close();
+}
+
+void ServantServer::OnData(shared_ptr<ReceiveData> data)
+{
+	shared_ptr<ReceiveMessage> message = ReceiveMessage::Wrap(data);
+	if (NULL == message.get()) {
+		LOGE("Invalid message size: %d %d", data->GetLength(), sizeof(Message));
 		return;
+	}
+	LOGD("Server receive message type: %d", message->GetMessage()->type);
 
-	misRun = false;
-	mthread->Join();
-	mthread.reset();
-	if (INVALID_SOCKET != msocket) {
-		closesocket(msocket);
-		msocket = INVALID_SOCKET;
+	switch (message->GetMessage()->type) {
+	case CXM_P2P_MESSAGE_LOGIN:
+		OnLoginMessage(message);
+		break;
+	case CXM_P2P_MESSAGE_LOGOUT:
+		OnLogoutMessage(message);
+		break;
+	case CXM_P2P_MESSAGE_REQUEST:
+		OnRequestMessage(message);
+		break;
+	case CXM_P2P_MESSAGE_CONNECT:
+		OnConnectMessage(message);
+		break;
+	default:
+		LOGE("Unknown message type: %d", message->GetMessage()->type);
+		break;
 	}
 }
 
-void ServantServer::Run()
+void ServantServer::OnLoginMessage(shared_ptr<ReceiveMessage> message)
 {
-	Message msg;
-	while (misRun) {
-		int res = MessageReceive(msocket, &msg);
-		if (0 != res) {
-			// LOGE("Cannot receive message: %d", res);
-			continue;
-		}
+	string clientName = message->GetMessage()->u.client.clientName;
+	shared_ptr<Candidate> clientCandidate = message->GetRemoteCandidate();
 
-		switch (msg.type) {
-		case CXM_P2P_MESSAGE_LOGIN:
-			OnLoginMessage(&msg);
-			break;
-		case CXM_P2P_MESSAGE_LOGOUT:
-			OnLogoutMessage(&msg);
-			break;
-		case CXM_P2P_MESSAGE_REQUEST:
-			OnRequestMessage(&msg);
-			break;
-		case CXM_P2P_MESSAGE_CONNECT:
-			OnConnectMessage(&msg);
-			break;
-		default:
-			LOGE("Unknown message type: %d", msg.type);
-			break;
-		}
+	if (clientName.length() <= 0) {
+		LOGE("Invalid client name");
+		return;
 	}
-}
-
-void ServantServer::OnLoginMessage(const Message *pmsg)
-{
-	string clientName = pmsg->clientName;
-	shared_ptr<Candidate> clientCandidate = shared_ptr<Candidate>(
-		new Candidate(pmsg->clientIp, pmsg->clientPort));
-
 	if (NULL != mclientList[clientName].get()) {
-		LOGW("Client %s already login, override", clientName.c_str());
+		LOGI("Client %s already login, override", clientName.c_str());
 		// return;
 	}
 
 	mclientList[clientName] = clientCandidate;
 	LOGI("Client %s login with address: %s", clientName.c_str(),
 		clientCandidate->ToString().c_str());
+
+	// send login reply
+	Message msgReply;
+	msgReply.type = CXM_P2P_MESSAGE_LOGIN_REPLY;
+	this->mtransceiver->SendTo(clientCandidate, (uint8_t *)&msgReply, sizeof(Message));
 }
 
-void ServantServer::OnLogoutMessage(const Message *pmsg)
+void ServantServer::OnLogoutMessage(std::shared_ptr<ReceiveMessage> message)
 {
-	string clientName = pmsg->clientName;
+	string clientName = message->GetMessage()->u.client.clientName;
 	if (NULL != mclientList[clientName]) {
 		mclientList[clientName] = NULL;
 		LOGI("Client %s logout", clientName.c_str());
 	}
 }
 
-void ServantServer::OnRequestMessage(const Message *pmsg)
+void ServantServer::OnRequestMessage(std::shared_ptr<ReceiveMessage> message)
 {
-	string requestClient = pmsg->umsg.request.remoteName;
+	string requestClient = message->GetMessage()->u.client.uc.request.remoteName;
 	if (NULL == mclientList[requestClient].get()) {
 		LOGE("Cannot get request client: %s", requestClient.c_str());
 		return;
@@ -121,31 +111,35 @@ void ServantServer::OnRequestMessage(const Message *pmsg)
 	shared_ptr<Candidate> remoteCandidate = mclientList[requestClient];
 
 	Message msgReply;
-	memset(&msgReply, 0, sizeof(msgReply));
 	msgReply.type = CXM_P2P_MESSAGE_REPLY_REQUEST;
-	msgReply.umsg.replyRequest.remoteIp = remoteCandidate->Ip();
-	msgReply.umsg.replyRequest.remotePort = remoteCandidate->Port();
+	msgReply.u.client.uc.replyRequest.remoteIp = remoteCandidate->Ip();
+	msgReply.u.client.uc.replyRequest.remotePort = remoteCandidate->Port();
 
+#if 0
 	int res = MessageSend(msocket, &msgReply, MessageCandidate(pmsg));
 	if (0 != res)
 		LOGE("Cannot send reply to client: %d", res);
 	LOGD("Reply request to: client %s address %s", 
 		requestClient.c_str(), remoteCandidate->ToString().c_str());
+#else
+	assert(0);
+#endif
 }
 
-void ServantServer::OnConnectMessage(const Message *pmsg)
+void ServantServer::OnConnectMessage(std::shared_ptr<ReceiveMessage> message)
 {
-	string masterClient = pmsg->clientName;
+	string masterClient = message->GetMessage()->u.client.clientName;
 	if (NULL == mclientList[masterClient].get()) {
-		LOGE("Cannot get master client: %s", pmsg->clientName);
+		LOGE("Cannot get master client: %s", message->GetMessage()->u.client.clientName);
 		return;
 	}
-	string slaveClient = pmsg->umsg.connect.remoteName;
+	string slaveClient = message->GetMessage()->u.client.uc.connect.remoteName;
 	if (NULL == mclientList[slaveClient].get()) {
 		LOGE("Cannot get slave client: %s", slaveClient.c_str());
 		return;
 	}
 
+#if 0
 	Message msgReply;
 	memset(&msgReply, 0, sizeof(msgReply));
 	msgReply.type = CXM_P2P_MESSAGE_REPLY_CONNECT;
@@ -159,51 +153,158 @@ void ServantServer::OnConnectMessage(const Message *pmsg)
 		LOGE("Cannot send p2p reply connect: %d", res);
 		return;
 	}
+#else
+	assert(0);
+#endif
 }
 
-ServantClient::ServantClient(const char *ip, uint16_t port) :
-	mstatus(SERVANT_CLIENT_UNLOGIN), msocket(INVALID_SOCKET),
-	misRun(false), mport(0)
+ServantClient::ServantClient(const char *ip, uint16_t port)
 {
 	mserverCandidate = shared_ptr<Candidate>(new Candidate(ip, port));
+	mserverTransport = shared_ptr<TransceiverU>(new TransceiverU());
+	mserverTransport->SetLocalCandidate(shared_ptr<Candidate>(new Candidate((int)0, 0)));
+	mserverTransport->SetSink(this);
+
+	this->SetStateInternal(SERVANT_CLIENT_LOGOUT);
 }
 
-int ServantClient::Login()
+int ServantClient::Call()
 {
-	if (SERVANT_CLIENT_UNLOGIN != mstatus) {
-		LOGE("Invalid status: %d", mstatus);
-		return -1;
-	}
-	if (mname.length() <= 0 || mname.length() > CLIENT_NAME_LENGTH ||
-		mremote.length() <= 0 || mremote.length() > CLIENT_NAME_LENGTH) {
-		LOGE("Invalid argument: %s", mname.c_str());
-		return -1;
-	}
+	assert(NULL != mstate.get());
+	return mstate->Login();
+}
 
-	int res = -1;
-	do {
-		res = this->DoLogin();
-		if (0 != res) {
-			LOGE("Cannot login: %d", res);
+void ServantClient::Hangup()
+{
+	assert(NULL != mstate.get());
+	mstate->Logout();
+}
+
+int ServantClient::Send(const char *buffer, int len)
+{
+	assert(NULL != mstate.get());
+	return mstate->Send(buffer, len);
+}
+
+void ServantClient::OnEvent(int type, shared_ptr<IEventArgs> args)
+{
+	LOGD("Client OnEvent: %d", type);
+	switch (type) {
+	case SERVANT_CLIENT_EVENT_LOGIN:
+		this->mstate->Login();
+		break;
+	case SERVANT_CLIENT_EVENT_ON_DATA: {
+		shared_ptr<ReceiveMessage> message = dynamic_pointer_cast<ReceiveMessage>(args);
+		if (NULL == message.get()) {
+			LOGE("Invalid args when ON_DATA: %p", args.get());
 			break;
 		}
 
-		// start listen thread
-		misRun = true;
-		mthread = shared_ptr<Thread>(new Thread(this, "ServantClient"));
-		mthread->Start();
+		this->mstate->OnMessage(message);
+		break;
+	} default:
+		break;
+	}
+}
 
-		mstatus = SERVANT_CLIENT_LOGIN;
-		LOGI("User %s login to %s at: port %d fd %d", mname.c_str(),
-			mserverCandidate->ToString().c_str(), mport, msocket);
-		return 0;
-	} while (0);
+void ServantClient::OnData(std::shared_ptr<ReceiveData> data)
+{
+	// get message
+	shared_ptr<ReceiveMessage> message = ReceiveMessage::Wrap(data);
+	if (NULL == message.get()) {
+		LOGE("Invalid message size: %d %d", data->GetLength(), sizeof(Message));
+		return;
+	}
+	LOGD("Client receive message type: %d", message->GetMessage()->type);
 
-	return res;
+	// swith thread
+	this->meventThread->PutEvnet(SERVANT_CLIENT_EVENT_ON_DATA, message);
+}
+
+void ServantClient::ClientState::Logout()
+{
+	// send message
+	Message msg;
+	msg.type = CXM_P2P_MESSAGE_LOGOUT;
+	strncpy(msg.u.client.clientName, PClient->mname.c_str(), CLIENT_NAME_LENGTH);
+
+	int res = PClient->mserverTransport->SendTo(PClient->mserverCandidate,
+		(uint8_t *)&msg, sizeof(Message));
+	if (0 != res)
+		LOGE("Cannot send logout message: %d", res);
+
+	// close server transport
+	if (NULL != PClient->mserverTransport.get()) {
+		PClient->mserverTransport->Close();
+		PClient->mserverTransport.reset();
+	}
+
+	if (NULL != PClient->meventThread.get()) {
+		// wait for thread stop
+		PClient->meventThread->Join();
+		PClient->meventThread.reset();
+	}
+}
+
+int ServantClient::ClientStateLogout::Login()
+{
+	if (PClient->mname.length() <= 0 || PClient->mname.length() > CLIENT_NAME_LENGTH ||
+		PClient->mremote.length() <= 0 || PClient->mremote.length() > CLIENT_NAME_LENGTH) {
+		LOGE("Invalid argument: %s", PClient->mname.c_str());
+		return -1;
+	}
+
+	// hold on self to prevent deleted
+	shared_ptr<ServantClient::ClientState> oldState = PClient->SetStateInternal(SERVANT_CLIENT_LOGINING);
+
+	// open transport
+	int res = PClient->mserverTransport->Open();
+	if (0 != res) {
+		LOGE("Cannot open transport: %d", res);
+		return -1;
+	}
+
+	// start event thread
+	PClient->meventThread = shared_ptr<UnifyEventThread>(new UnifyEventThread("ServantClient"));
+	PClient->meventThread->SetSink(PClient);
+	PClient->meventThread->Start();
+
+	// put login event
+	PClient->meventThread->PutEvnet(SERVANT_CLIENT_EVENT_LOGIN);
+
+	return 0;
+}
+
+
+
+int ServantClient::ClientStateLogin::OnMessage(shared_ptr<ReceiveMessage> message)
+{
+	return -1;
+}
+
+int ServantClient::ClientStateRequesting::OnMessage(shared_ptr<ReceiveMessage> message)
+{
+	return -1;
+}
+
+int ServantClient::ClientStateRequested::OnMessage(shared_ptr<ReceiveMessage> message)
+{
+	return -1;
+}
+
+int ServantClient::ClientStateConnecting::OnMessage(shared_ptr<ReceiveMessage> message)
+{
+	return -1;
+}
+
+int ServantClient::ClientStateConnected::OnMessage(shared_ptr<ReceiveMessage> message)
+{
+	return -1;
 }
 
 void ServantClient::Logout()
 {
+#if 0
 	if (mstatus == SERVANT_CLIENT_UNLOGIN)
 		return;
 
@@ -211,10 +312,13 @@ void ServantClient::Logout()
 	if (0 != res)
 		LOGE("Cannot logout for %s: %d", mname.c_str(), res);
 	mstatus = SERVANT_CLIENT_UNLOGIN;
+#else
+#endif
 }
 
 int ServantClient::Request()
 {
+#if 0
 	if (SERVANT_CLIENT_LOGIN != mstatus) {
 		LOGE("Invalid status for request: %d", mstatus);
 		return -1;
@@ -249,10 +353,14 @@ int ServantClient::Request()
 
 	mstatus = SERVANT_CLIENT_LOGIN; // retrieve status
 	return res;
+#else
+	return -1;
+#endif
 }
 
 int ServantClient::Connect()
 {
+#if 0
 	if (SERVANT_CLIENT_REQUESTED != mstatus) {
 		LOGE("Invalid status when connect: %d", mstatus);
 		return -1;
@@ -286,40 +394,49 @@ int ServantClient::Connect()
 
 	mstatus = SERVANT_CLIENT_REQUESTED;
 	return -1;
+#else
+	return -1;
+#endif
 }
 
-void ServantClient::Run()
+shared_ptr<ServantClient::ClientState> ServantClient::SetStateInternal(SERVANT_CLIENT_STATE_T state)
 {
-	Message msg;
-	while (misRun) {
-		int res = MessageReceive(msocket, &msg);
-		if (0 != res) {
-			// LOGE("Cannot get reply from server for requesting remote");
-			continue;
-		}
+	unique_lock<std::mutex> lock(mstateMutex);
 
-		switch (msg.type) {
-		case CXM_P2P_MESSAGE_REPLY_REQUEST:
-			OnReplyRequest(&msg);
-			break;
-		case CXM_P2P_MESSAGE_REPLY_CONNECT:
-			OnReplyConnect(&msg);
-			break;
-		case CXM_P2P_MESSAGE_DO_P2P_CONNECT:
-			OnP2PConnect(&msg);
-			break;
-		case CXM_P2P_MESSAGE_REPLY_P2P_CONNECT:
-			OnReplyP2PConnect(&msg);
-			break;
-		default:
-			LOGE("Invalid client message type: %d", msg.type);
-			break;
-		}
+	shared_ptr<ClientState> oldState = mstate;
+
+	switch (state) {
+	case SERVANT_CLIENT_LOGINING:
+		mstate = shared_ptr<ClientState>(new ClientStateLogining(this));
+		break;
+	case SERVANT_CLIENT_LOGIN:
+		mstate = shared_ptr<ClientState>(new ClientStateLogin(this));
+		break;
+	case SERVANT_CLIENT_REQUESTING:
+		mstate = shared_ptr<ClientState>(new ClientStateRequesting(this));
+		break;
+	case SERVANT_CLIENT_REQUESTED:
+		mstate = shared_ptr<ClientState>(new ClientStateRequested(this));
+		break;
+	case SERVANT_CLIENT_CONNECTING:
+		mstate = shared_ptr<ClientState>(new ClientStateConnecting(this));
+		break;
+	case SERVANT_CLIENT_CONNECTED:
+		mstate = shared_ptr<ClientState>(new ClientStateConnected(this));
+		break;
+	default:
+		mstate = shared_ptr<ClientState>(new ClientStateLogout(this));
+		break;
 	}
+
+	if (NULL != oldState.get())
+		LOGI("Change state to %d from %d", mstate->State, oldState->State);
+	return oldState;
 }
 
 void ServantClient::OnReplyRequest(const Message *pmsg)
 {
+#if 0
 	if (mstatus != SERVANT_CLIENT_REQUESTING) {
 		LOGE("Invalid status when receive reply request: %d", mstatus);
 		return;
@@ -332,10 +449,13 @@ void ServantClient::OnReplyRequest(const Message *pmsg)
 	mstatus = SERVANT_CLIENT_REQUESTED;
 	LOGI("Receive remote candidate: %s", mremoteCandidate->ToString().c_str());
 	mcv.notify_one(); // notify request()
+#else
+#endif
 }
 
 void ServantClient::OnReplyConnect(const Message *pmsg)
 {
+#if 0
 	if (SERVANT_CLIENT_CONNECTING != mstatus) {
 		LOGE("Invalid status when reply connect: %d", mstatus);
 		return;
@@ -352,10 +472,13 @@ void ServantClient::OnReplyConnect(const Message *pmsg)
 			mremoteCandidate->ToString().c_str(), res);
 	else
 		LOGI("Send remote p2p connect: %s", mremoteCandidate->ToString().c_str());
+#else
+#endif
 }
 
 void ServantClient::OnP2PConnect(const Message *pmsg)
 {
+#if 0
 	if (SERVANT_CLIENT_CONNECTING != mstatus) {
 		LOGE("Invalid status when p2p connect: %d", mstatus);
 		return;
@@ -383,10 +506,13 @@ void ServantClient::OnP2PConnect(const Message *pmsg)
 	else
 		LOGI("Send reply p2p connect to %s with key: %s",
 			mremoteCandidate->ToString().c_str(), pmsg->umsg.p2p.key);
+#else
+#endif
 }
 
 void ServantClient::OnReplyP2PConnect(const Message *pmsg)
 {
+#if 0
 	if (SERVANT_CLIENT_CONNECTING != mstatus) {
 		LOGE("Invalid status when p2p connect: %d", mstatus);
 		return;
@@ -407,76 +533,13 @@ void ServantClient::OnReplyP2PConnect(const Message *pmsg)
 	
 	mstatus = SERVANT_CLIENT_CONNECTED;
 	mcv.notify_one(); // notify request()
-}
-
-int ServantClient::DoLogin()
-{
-	// create socket
-	msocket = openPort(mport, 0, false);
-	if (INVALID_SOCKET == msocket) {
-		LOGE("Cannot open port");
-		return -1;
-	}
-	// get random port if any
-	if (0 == mport) {
-		struct sockaddr_in addr;
-		int len = sizeof(addr);
-		if (0 == getsockname(msocket, (struct sockaddr *)&addr, &len))
-			mport = addr.sin_port;
-
-		if (0 != mport) {
-			// reopen port
-			closesocket(msocket);
-			msocket = openPort(mport, 0, false);
-			if (INVALID_SOCKET == msocket) {
-				LOGE("Cannot reopen port");
-				return -1;
-			}
-		}
-	}
-
-	// send login message
-	Message msg;
-	memset(&msg, 0, sizeof(msg));
-	msg.type = CXM_P2P_MESSAGE_LOGIN;
-	strncpy(msg.clientName, mname.c_str(), CLIENT_NAME_LENGTH);
-	msg.umsg.login.clientPrivateIp = 0; // TODO set private candidate
-	msg.umsg.login.clientPrivatePort = 0;
-
-	return MessageSend(msocket, &msg, mserverCandidate);
-}
-
-int ServantClient::DoLogout()
-{
-	if (INVALID_SOCKET == msocket) {
-		LOGW("Already logout");
-		return -1;
-	}
-
-	// send message
-	Message msg;
-	memset(&msg, 0, sizeof(msg));
-	msg.type = CXM_P2P_MESSAGE_LOGOUT;
-	strncpy(msg.clientName, mname.c_str(), CLIENT_NAME_LENGTH);
-
-	int res = MessageSend(msocket, &msg, mserverCandidate);
-	if (0 != res)
-		LOGE("Cannot send logout message: %d", res);
-
-	// wait for thread stop
-	misRun = false;
-	mthread->Join();
-	mthread.reset();
-
-	// close socket
-	closesocket(msocket);
-	msocket = INVALID_SOCKET;
-
-	return 0;
+#else
+#endif
 }
 
 int ServantClient::DoRequest()
 {
+#if 0
 	Message msg;
 	memset(&msg, 0, sizeof(msg));
 	msg.type = CXM_P2P_MESSAGE_REQUEST;
@@ -489,10 +552,14 @@ int ServantClient::DoRequest()
 	}
 
 	return 0;
+#else
+	return -1;
+#endif
 }
 
 int ServantClient::DoConnect()
 {
+#if 0
 	Message msg;
 	memset(&msg, 0, sizeof(msg));
 	msg.type = CXM_P2P_MESSAGE_CONNECT;
@@ -506,4 +573,10 @@ int ServantClient::DoConnect()
 	}
 
 	return 0;
+#else
+	return -1;
+#endif
+}
+
+}
 }

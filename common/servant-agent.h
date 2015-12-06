@@ -6,6 +6,10 @@
 #include "thread.h"
 #include "servant.h"
 
+namespace cxm {
+namespace p2p {
+
+#if 0
 typedef enum {
 	SERVANT_CLIENT_AGENT_ERROR_UNKNOWN
 } SERVANT_CLIENT_AGENT_ERROR_T;
@@ -43,5 +47,8 @@ class ServantClientAgent : public cxm::util::IRunnable
 	public: void SetName(std::string name) { msc->SetName(name); }
 	public: void SetRemote(std::string remote) { msc->SetRemote(remote); }
 };
+#endif
+}
+}
 
 #endif

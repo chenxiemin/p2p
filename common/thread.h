@@ -51,7 +51,10 @@ class Thread
 
 	public: Thread(IRunnable *runnable, std::string name)
 	{
-		mname = name;
+		if (name.length() > 0)
+			mname = name;
+		else
+			mname = "Unname";
 		this->isFinish = false;
 		this->mRunnable = runnable;
 	}
@@ -72,12 +75,12 @@ class Thread
 		this->isFinish = true;
 	}
 
-	public: void Start()
+	public: virtual void Start()
 	{
 		mThread = std::thread(ThreadHock, this);
 	}
 
-	public: void Join()
+	public: virtual void Join()
 	{
 		if (mThread.joinable()) {
 			LOGD("Before join thread: %s", mname.c_str());
@@ -99,6 +102,7 @@ class Thread
 		std::this_thread::sleep_for(std::chrono::milliseconds(mils));
 	}
 };
+
 }
 }
 

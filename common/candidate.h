@@ -10,10 +10,15 @@ class Candidate
 {
 	private: int mip;
 	private: unsigned short mport;
+
 	public: Candidate(int ip, unsigned short port) : mip(ip), mport(port) { }
-	public:  public: Candidate(const char *ip, int port)
+
+	public:  public: Candidate(const char *ip, unsigned short port)
 	{
-		mip = ntohl(inet_addr(ip));
+		if (NULL != ip)
+			mip = ntohl(inet_addr(ip));
+		else
+			mip = 0;
 		mport = port;
 	}
 
@@ -40,7 +45,10 @@ class Candidate
 		{ return mip == rhs.mip && mport == rhs.mport; }
 
 	public: int Ip() { return mip; }
-	public: unsigned short Port() { return mport; }
+	public: uint16_t Port() { return mport; }
+
+	public: void SetIP(int ip) { mip = ip; }
+	public: void SetPort(uint16_t port) { mport = port; }
 };
 
 #endif

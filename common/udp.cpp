@@ -24,6 +24,8 @@
 
 using namespace std;
 
+#define SELECT_TIMEOUT_MILS 100
+
 Socket
 openPort( unsigned short port, unsigned int interfaceIp, bool verbose )
 {
@@ -119,8 +121,8 @@ getMessage( Socket fd, char* buf, int* len,
    FD_ZERO(&fds);
    FD_SET(fd, &fds);
    struct timeval tv;
-   tv.tv_sec = 1;
-   tv.tv_usec = 0;
+   tv.tv_sec = 0;
+   tv.tv_usec = SELECT_TIMEOUT_MILS * 1000;
 
    int n = select(fd, &fds, NULL, NULL, &tv);
    if (n <= 0)

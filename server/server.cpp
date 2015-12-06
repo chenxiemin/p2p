@@ -3,6 +3,7 @@
 #include "servant.h"
 
 using namespace std;
+using namespace cxm::p2p;
 
 int main()
 {

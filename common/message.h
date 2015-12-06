@@ -6,60 +6,81 @@
 
 #include "udp.h"
 #include "candidate.h"
+#include "Transceiver.h"
 
 #define CLIENT_NAME_LENGTH 31
 
 typedef enum {
-	CXM_P2P_MESSAGE_UNKNOWN = -1,
-	CXM_P2P_MESSAGE_LOGIN = 0,
-	CXM_P2P_MESSAGE_LOGOUT = 1,
-	CXM_P2P_MESSAGE_REQUEST = 2,
-	CXM_P2P_MESSAGE_REPLY_REQUEST = 3,
-	CXM_P2P_MESSAGE_CONNECT = 4,
-	CXM_P2P_MESSAGE_REPLY_CONNECT = 5,
-	CXM_P2P_MESSAGE_DO_P2P_CONNECT = 6,
-	CXM_P2P_MESSAGE_REPLY_P2P_CONNECT = 7,
+	CXM_P2P_MESSAGE_UNKNOWN = 0,
+	CXM_P2P_MESSAGE_LOGIN,
+	CXM_P2P_MESSAGE_LOGIN_REPLY,
+	CXM_P2P_MESSAGE_LOGOUT,
+	CXM_P2P_MESSAGE_LOGOUT_REPLY,
+	CXM_P2P_MESSAGE_REQUEST,
+	CXM_P2P_MESSAGE_REPLY_REQUEST,
+	CXM_P2P_MESSAGE_CONNECT,
+	CXM_P2P_MESSAGE_REPLY_CONNECT,
+	CXM_P2P_MESSAGE_DO_P2P_CONNECT,
+	CXM_P2P_MESSAGE_REPLY_P2P_CONNECT,
 	CXM_P2P_MESSAGE_COUNT // remain last
 } CXM_P2P_MESSAGE_TYPE;
 
-typedef struct
+typedef enum {
+	CXM_P2P_ROLE_SERVER,
+	CXM_P2P_ROLE_CLIENT
+} CXM_P2P_ROLE_T;
+
+struct Message
 {
 	uint16_t type;
-	char clientName[CLIENT_NAME_LENGTH + 1];
-	uint32_t clientIp; // client ip & port within public network
-	uint16_t clientPort;
+	uint8_t role;
+
+	Message()
+	{
+		memset(this, 0, sizeof(Message));
+	}
 
 	union {
 		struct {
-			uint32_t clientPrivateIp;
-			uint16_t clientPrivatePort;
-		} login;
-		struct {
 
-		} logout;
+		} server;
 		struct {
-			char remoteName[CLIENT_NAME_LENGTH + 1];
-		} request;
-		struct {
-			uint32_t remoteIp;
-			uint16_t remotePort;
-		} replyRequest;
-		struct {
-			char remoteName[CLIENT_NAME_LENGTH + 1];
-		} connect;
-		struct {
-			char key[CLIENT_NAME_LENGTH + 1];
-		} p2p;
-		struct {
-			char key[CLIENT_NAME_LENGTH + 1];
-		} p2pReply;
-	} umsg;
-} Message;
+			char clientName[CLIENT_NAME_LENGTH + 1];
+			union {
+				struct {
+					uint32_t clientPrivateIp;
+					uint16_t clientPrivatePort;
+				} login;
+				struct {
 
-int MessageSend(Socket socket, Message *pmsg, std::shared_ptr<Candidate> remote);
-int MessageReceive(Socket socket, Message *pmsg);
+				} logout;
+				struct {
+					char remoteName[CLIENT_NAME_LENGTH + 1];
+				} request;
+				struct {
+					uint32_t remoteIp;
+					uint16_t remotePort;
+				} replyRequest;
+				struct {
+					char remoteName[CLIENT_NAME_LENGTH + 1];
+				} connect;
+				struct {
+					char key[CLIENT_NAME_LENGTH + 1];
+				} p2p;
+				struct {
+					char key[CLIENT_NAME_LENGTH + 1];
+				} p2pReply;
+			} uc;
+		} client;
+	} u;
+};
+
+#if 0
+int MessageSend(std::shared_ptr<cxm::p2p::TransceiverU> transport, std::shared_ptr<Candidate> remote, Message *pmsg);
+std::shared_ptr<Candidate> MessageReceive(std::shared_ptr<cxm::p2p::TransceiverU> transport, Message *pmsg);
+#endif
 int MessageValidate(const Message *pmsg);
+#if 0
 std::shared_ptr<Candidate> MessageCandidate(const Message *pmsg);
-
-
+#endif
 #endif

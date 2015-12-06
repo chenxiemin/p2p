@@ -4,6 +4,10 @@
 using namespace std;
 using namespace cxm::util;
 
+#if 0
+namespace cxm {
+namespace p2p {
+
 ServantClientAgent::ServantClientAgent(const char *servarIp) :
 	mpdelegate(NULL), misRun(false), misConnectFired(false)
 {
@@ -82,3 +86,8 @@ void ServantClientAgent::Run()
 		}
 	}
 }
+
+}
+}
+
+#endif

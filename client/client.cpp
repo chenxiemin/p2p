@@ -6,17 +6,18 @@
 #include "log.h"
 
 using namespace std;
+using namespace cxm::p2p;
 
-class MyAgent : public IServantClientAgentSink
+class MyAgent : public IServantClientSink
 {
 	string mstr;
-	shared_ptr<ServantClientAgent> msc;
+	shared_ptr<ServantClient> msc;
 
 	public: MyAgent(const char *ip, const char *name, const char *remote)
 	{
 		mstr = "chenxiemin";
 
-		msc = shared_ptr<ServantClientAgent>(new ServantClientAgent(ip));
+		msc = shared_ptr<ServantClient>(new ServantClient(ip));
 		msc->SetName(name);
 		msc->SetRemote(remote);
 		msc->SetSink(this);
@@ -58,7 +59,7 @@ class MyAgent : public IServantClientAgentSink
 		cxm::util::Thread::Sleep(100);
 	}
 
-	public: virtual void OnError(SERVANT_CLIENT_AGENT_ERROR_T error, void *opaque)
+	public: virtual void OnError(SERVANT_CLIENT_ERROR_T error, void *opaque)
 	{
 
 	}
