@@ -31,14 +31,11 @@ class Candidate
 		bytes[3] = (mip >> 24) & 0xFF;
 
 		std::ostringstream ss;
-		ss << std::to_string(bytes[3]) << "." << 
-			std::to_string(bytes[2]) << "." << 
-			std::to_string(bytes[1]) << "." << 
-			std::to_string(bytes[0]) << ":" << mport;
-		// ss << ":" << mport;
+		ss << (int)bytes[3] << "." << 
+			(int)bytes[2] << "." << 
+			(int)bytes[1] << "." << 
+			(int)bytes[0] << ":" << mport;
 		return ss.str();
-
-		// printf("%d.%d.%d.%d\n", bytes[3], bytes[2], bytes[1], bytes[0]);
 	}
 
 	public: bool Equal(const Candidate &rhs)

@@ -38,7 +38,7 @@
 
 #define __MY_FILE__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 
-#ifdef __ANDROID__
+#ifdef ENABLE_ANDROID_LOG
 #include <android/log.h>
 #define LOG(level, x...) do { if (LOG_LEVEL_V == level) break; \
 	char buf[512]; \
