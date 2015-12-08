@@ -124,7 +124,7 @@ getMessage( Socket fd, char* buf, int* len,
    tv.tv_sec = 0;
    tv.tv_usec = SELECT_TIMEOUT_MILS * 1000;
 
-   int n = select(fd, &fds, NULL, NULL, &tv);
+   int n = select(fd + 1, &fds, NULL, NULL, &tv);
    if (n <= 0)
 	   return false;
 	
