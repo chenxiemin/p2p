@@ -2,7 +2,6 @@
 #include <string>
 
 #include "servant.h"
-#include "servant-agent.h"
 #include "log.h"
 #include "timer.h"
 
