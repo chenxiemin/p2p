@@ -14,6 +14,7 @@
 #include "event-thread.h"
 #include "timer.h"
 #include "transceiver.h"
+#include "stun-resolver.h"
 
 namespace cxm {
 namespace p2p {
@@ -242,6 +243,8 @@ class ServantClient : cxm::p2p::IReveiverSinkU, cxm::util::IEventSink
 	private: std::string mremotePeer;
 			 
 	private: std::shared_ptr<cxm::util::UnifyEventThread> meventThread;
+
+	private: STUN_NAT_TYPE_T mnatType;
 
 	private: std::mutex mstateMutex;
 	private: std::shared_ptr<ClientState> mstate;

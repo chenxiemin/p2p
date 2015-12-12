@@ -163,7 +163,8 @@ void ServantServer::OnConnectMessage(std::shared_ptr<ReceiveMessage> message)
 		slaveClient.c_str(), mclientList[slaveClient]->ToString().c_str());
 }
 
-ServantClient::ServantClient(const char *ip, uint16_t port)
+ServantClient::ServantClient(const char *ip, uint16_t port) :
+	mnatType(STUN_NAT_TYPE_UNKNOWN)
 {
 	// start event thread
 	meventThread = shared_ptr<UnifyEventThread>(new UnifyEventThread("ServantClient"));

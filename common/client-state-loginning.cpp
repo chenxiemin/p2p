@@ -15,8 +15,14 @@ namespace p2p {
 
 int ServantClient::ClientStateLogining::Login()
 {
-	if (NULL != PClient->mtransport)
-		LOGE("ServerTransport do not free last");
+	assert(NULL != PClient->mtransport.get());
+	// get stun type
+	PClient->mnatType = StunResolver::GetInstance()->Resolve();
+	if (STUN_NAT_TYPE_UNKNOWN == PClient->mnatType) {
+		LOGE("Cannot get current network type");
+		return -1;
+	}
+	LOGI("Get current network type: %d", PClient->mnatType);
 
 	// open transport
 	int res = PClient->mtransport->Open();
@@ -25,6 +31,8 @@ int ServantClient::ClientStateLogining::Login()
 		PClient->SetStateInternal(SERVANT_CLIENT_LOGOUT);
 		return -1;
 	}
+
+	StunResolver::GetInstance()->Resolve();
 
 	this->OnTimer();
 
@@ -59,7 +67,7 @@ void ServantClient::ClientStateLogining::OnTimer()
 	PClient->mtransport->SendTo(PClient->mserverCandidate,
 		(uint8_t *)&msg, sizeof(Message));
 
-	LOGD("Sending login request to %s...",
+	LOGI("Sending login request to ...",
 		PClient->mserverCandidate->ToString().c_str());
 }
 

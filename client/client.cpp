@@ -4,7 +4,9 @@
 #include "servant.h"
 #include "log.h"
 #include "timer.h"
+#include "udp.h"
 
+#if 1
 using namespace std;
 using namespace std::chrono;
 using namespace cxm::util;
@@ -93,6 +95,7 @@ int main(int argc, char **argv)
 
 	return 0;
 }
+#endif
 
 #if 0
 #include <cassert>
@@ -145,7 +148,7 @@ main(int argc, char* argv[])
    int testNum = 0;
    bool verbose = false;
 	
-   StuiAddress4 stunServerAddr;
+   StunAddress4 stunServerAddr;
    stunServerAddr.addr=0;
 
    int srcPort=0;
