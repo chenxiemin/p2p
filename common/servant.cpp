@@ -244,9 +244,11 @@ void ServantClient::OnEvent(int type, shared_ptr<IEventArgs> args)
 	switch (type) {
 	case SERVANT_CLIENT_EVENT_LOGIN: {
 		int res = this->mstate->Login();
-		if (0 != res)
-			LOGE("Error when procese EVENT_LOGIN by state %d: res %d",
+		if (0 != res) {
+			LOGE("Relogin, error when procese EVENT_LOGIN by state %d: res %d",
 				this->GetState(), res);
+            this->meventThread->PutEvnet(SERVANT_CLIENT_EVENT_LOGIN);
+        }
 		break;
 	} case SERVANT_CLIENT_EVENT_LOGOUT: {
 		this->mstate->Logout();
