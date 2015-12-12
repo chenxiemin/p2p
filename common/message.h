@@ -88,12 +88,5 @@ struct Message
 	} u;
 };
 
-#if 0
-int MessageSend(std::shared_ptr<cxm::p2p::TransceiverU> transport, std::shared_ptr<Candidate> remote, Message *pmsg);
-std::shared_ptr<Candidate> MessageReceive(std::shared_ptr<cxm::p2p::TransceiverU> transport, Message *pmsg);
-#endif
 int MessageValidate(const Message *pmsg);
-#if 0
-std::shared_ptr<Candidate> MessageCandidate(const Message *pmsg);
-#endif
 #endif

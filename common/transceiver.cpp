@@ -86,29 +86,5 @@ void TransceiverU::Run()
 	}
 }
 
-#if 0
-shared_ptr<TransceiverU> TransceiverU::CreateTransceiverU(
-	shared_ptr<Candidate> remoteCandidate, shared_ptr<Candidate> localCandidate)
-{
-	shared_ptr<TransceiverU> TransceiverU = shared_ptr<TransceiverU>(new TransceiverU());
-
-	if (NULL == localCandidate.get())
-		localCandidate = shared_ptr<Candidate>(new Candidate((int)0, 0));
-
-	TransceiverU->SetLocalCandidate(localCandidate);
-	TransceiverU->SetRemoteCandidate(remoteCandidate);
-
-	int res = TransceiverU->Open();
-	if (0 != res) {
-		LOGE("Cannot open TransceiverU local %s, remote %s, res: %d",
-			localCandidate->ToString().c_str(), remoteCandidate->ToString().c_str(), res);
-		TransceiverU.reset();
-	}
-
-	return TransceiverU;
-}
-#endif
-
 }
 }
-

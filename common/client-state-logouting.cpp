@@ -35,14 +35,6 @@ void ServantClient::ClientStateLogouting::Logout()
 	unique_lock<mutex> lock(PClient->mlogoutMutex);
 	PClient->mlogoutCV.notify_one();
 	LOGD("After notify logout success");
-
-#if 0
-	// wait for thread stop
-	if (NULL != PClient->meventThread.get()) {
-		PClient->meventThread->Join();
-		PClient->meventThread.reset();
-	}
-#endif
 }
 
 }

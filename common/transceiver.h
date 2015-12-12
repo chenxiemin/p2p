@@ -65,23 +65,13 @@ class TransceiverU : public cxm::util::IRunnable
 	private: uint8_t mreceBuffer[MAX_RECEIVE_BUFFER_SIZE];
 
 	private: std::shared_ptr<Candidate> mlocalCandidate;
-#if 0
-	private: std::shared_ptr<Candidate> mremoteCandidate;
-#endif
 	private: Socket msocket;
 
 	public: Socket GetSocket() { return msocket; }
 	public: std::shared_ptr<Candidate> GetLocalCandidate() { return mlocalCandidate; }
-#if 0
-	public: std::shared_ptr<Candidate> GetRemoteCandidate() { return mremoteCandidate; }
-#endif
 
 	public: void SetLocalCandidate(std::shared_ptr<Candidate> candidate)
 		{ mlocalCandidate = candidate; }
-#if 0
-	public: void SetRemoteCandidate(std::shared_ptr<Candidate> candidate)
-		{ mremoteCandidate = candidate; }
-#endif
 
 	public: TransceiverU() : misRun(false), mpsink(NULL),
 		msocket(INVALID_SOCKET) {}
@@ -93,11 +83,6 @@ class TransceiverU : public cxm::util::IRunnable
 	public: int SendTo(std::shared_ptr<Candidate> remote, const uint8_t *buf, int len);
 
 	private: virtual void Run();
-#if 0
-	public: static std::shared_ptr<TransceiverU> CreateTransceiverU(
-		std::shared_ptr<Candidate> remoteCandidate,
-		std::shared_ptr<Candidate> localCandidate = std::shared_ptr<Candidate>());
-#endif
 };
 
 }

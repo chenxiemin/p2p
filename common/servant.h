@@ -109,12 +109,6 @@ class ServantClient : cxm::p2p::IReveiverSinkU, cxm::util::IEventSink
 		// Login state indicate that
 		// the client has connected to the P2P server
 		SERVANT_CLIENT_LOGIN,
-#if 0
-		SERVANT_CLIENT_REQUESTING,
-		// Requested state indicate that the client
-		// has requested the peer address which need to be connected
-		SERVANT_CLIENT_REQUESTED,
-#endif
 		SERVANT_CLIENT_CONNECTING,
 		// Connected state indicate that the client
 		// has already connected to the peer
@@ -134,11 +128,6 @@ class ServantClient : cxm::p2p::IReveiverSinkU, cxm::util::IEventSink
 
 		virtual int Login() { return -1; };
 		virtual void Logout() { };
-#if 0
-		// request remote candidate address
-		virtual int Request() { return -1; };
-		// connect to remote candidate
-#endif
 		virtual int Connect() { return -1; };
 		virtual void Disconnect() { };
 
@@ -283,9 +272,6 @@ class ServantClient : cxm::p2p::IReveiverSinkU, cxm::util::IEventSink
 	public: int SendTo(const uint8_t *buffer, int len);
 
 #if 0
-
-	// request remote candidate address
-	public: int Request();
 	// connect to remote candidate
 	public: int Connect();
 	public: void Disconnect();
