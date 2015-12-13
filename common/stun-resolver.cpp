@@ -88,7 +88,7 @@ STUN_NAT_TYPE_T StunResolver::ResolveInternal(const std::string &server)
 			cout << "Blocked or could not reach STUN server";
 			break;
 		default:
-			LOGD("Unknown NAT stype: ", stype);
+			LOGD("Unknown NAT stype: %d", stype);
 			break;
 		}
 	} while (false);
@@ -104,3 +104,4 @@ StunResolver *StunResolver::GetInstance()
 
 }
 }
+

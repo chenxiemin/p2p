@@ -67,7 +67,7 @@ void ServantClient::ClientStateLogining::OnTimer()
 	PClient->mtransport->SendTo(PClient->mserverCandidate,
 		(uint8_t *)&msg, sizeof(Message));
 
-	LOGI("Sending login request to ...",
+	LOGI("Sending login request to %s...",
 		PClient->mserverCandidate->ToString().c_str());
 }
 
