@@ -94,14 +94,17 @@ int ServantClient::ClientStateConnecting::OnMessage(shared_ptr<ReceiveMessage> m
 		msg.type = CXM_P2P_MESSAGE_DO_P2P_CONNECT;
 		strncpy(msg.u.p2p.up.p2p.key, SERVANT_P2P_MESSAGE, CLIENT_NAME_LENGTH);
 
-		int res = PClient->mtransport->SendTo(PeerCandidate,
-			(uint8_t *)&msg, sizeof(Message));
-		if (0 != res)
-			LOGE("Cannot send p2p connect to remote %s: %d",
-				PeerCandidate->ToString().c_str(), res);
-		else
-			LOGI("Receiving REPLY_CONNECT from P2P server, sending connect request to peer: %s",
-				PeerCandidate->ToString().c_str());
+        for (int i = 0; i < 10; i++) {
+            int res = PClient->mtransport->SendTo(PeerCandidate,
+                    (uint8_t *)&msg, sizeof(Message));
+            if (0 != res)
+                LOGE("Cannot send p2p connect to remote %s: %d at times %d",
+                        PeerCandidate->ToString().c_str(), res, i);
+            else
+                LOGI("Receiving REPLY_CONNECT from P2P server, sending connect"
+                        " request to peer: %s at times %d",
+                        PeerCandidate->ToString().c_str(), i);
+        }
 
 		return 0;
 	} case CXM_P2P_MESSAGE_DO_P2P_CONNECT: {
