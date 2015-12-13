@@ -94,25 +94,38 @@ int ServantClient::ClientStateConnecting::OnMessage(shared_ptr<ReceiveMessage> m
 		msg.type = CXM_P2P_MESSAGE_DO_P2P_CONNECT;
 		strncpy(msg.u.p2p.up.p2p.key, SERVANT_P2P_MESSAGE, CLIENT_NAME_LENGTH);
 
-        for (int i = 0; i < 10; i++) {
-            int res = PClient->mtransport->SendTo(PeerCandidate,
-                    (uint8_t *)&msg, sizeof(Message));
-            if (0 != res)
-                LOGE("Cannot send p2p connect to remote %s: %d at times %d",
-                        PeerCandidate->ToString().c_str(), res, i);
-            else
-                LOGI("Receiving REPLY_CONNECT from P2P server, sending connect"
-                        " request to peer: %s at times %d",
-                        PeerCandidate->ToString().c_str(), i);
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                shared_ptr<Candidate> sendCandidate = shared_ptr<Candidate>(
+                        new Candidate(PeerCandidate->Ip(), PeerCandidate->Port() + i));
+                int res = PClient->mtransport->SendTo(sendCandidate,
+                        (uint8_t *)&msg, sizeof(Message));
+                if (0 != res)
+                    LOGE("Cannot send p2p connect to remote %s: %d at times %d",
+                            sendCandidate->ToString().c_str(), res, i);
+                else
+                    LOGI("Receiving REPLY_CONNECT from P2P server, sending connect"
+                            " request to peer: %s at times %d",
+                            sendCandidate->ToString().c_str(), i);
+            }
         }
 
 		return 0;
 	} case CXM_P2P_MESSAGE_DO_P2P_CONNECT: {
+        // update remote peer candidate if in SYM NAT
+		if (!PeerCandidate->Equal(message->GetRemoteCandidate())) {
+            LOGI("Receive DO_P2P from different candidate, update %s to %s",
+                    PeerCandidate->ToString().c_str(),
+                    message->GetRemoteCandidate()->ToString().c_str());
+            PeerCandidate = message->GetRemoteCandidate();
+		}
+
 		// send p2p connect
 		Message msg;
 		memset(&msg, 0, sizeof(msg));
 		msg.type = CXM_P2P_MESSAGE_REPLY_P2P_CONNECT;
 		strncpy(msg.u.p2p.up.p2pReply.key, SERVANT_P2P_REPLY_MESSAGE, CLIENT_NAME_LENGTH);
+
 		int res = PClient->mtransport->SendTo(PeerCandidate,
 			(uint8_t *)&msg, sizeof(Message));
 		if (0 != res)
@@ -127,10 +140,10 @@ int ServantClient::ClientStateConnecting::OnMessage(shared_ptr<ReceiveMessage> m
 		LOGI("Receive REPLY_P2P_CONNECT from peer: %s",
 			message->GetRemoteCandidate()->ToString().c_str());
 		if (!PeerCandidate->Equal(message->GetRemoteCandidate())) {
-			LOGE("Invalid peer reply: %s %s",
-				message->GetRemoteCandidate()->ToString().c_str(),
-				PeerCandidate->ToString().c_str());
-			return -1;
+            LOGI("Receive REPLY_P2P from different candidate, update %s to %s",
+                    PeerCandidate->ToString().c_str(),
+                    message->GetRemoteCandidate()->ToString().c_str());
+            PeerCandidate = message->GetRemoteCandidate();
 		}
 
 		LOGI("P2P connection establis successfully between local %s and peer %s",

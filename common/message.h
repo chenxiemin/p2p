@@ -90,3 +90,4 @@ struct Message
 
 int MessageValidate(const Message *pmsg);
 #endif
+
