@@ -104,8 +104,8 @@ int ServantClient::ClientStateConnecting::OnMessage(shared_ptr<ReceiveMessage> m
                     LOGE("Cannot send p2p connect to remote %s: %d at times %d",
                             sendCandidate->ToString().c_str(), res, i);
                 else
-                    LOGI("Receiving REPLY_CONNECT from P2P server, sending connect"
-                            " request to peer: %s at times %d",
+                    LOGI("Receiving REPLY_CONNECT from P2P server, sending "
+                            " DO_P2P_CONNECT request to peer: %s at times %d",
                             sendCandidate->ToString().c_str(), i);
             }
         }
@@ -132,8 +132,9 @@ int ServantClient::ClientStateConnecting::OnMessage(shared_ptr<ReceiveMessage> m
 			LOGE("Cannot send reply p2p connect to %s: %d",
 				PeerCandidate->ToString().c_str(), res);
 		else
-			LOGI("Receiving DO_P2P_CONNECT command from peer %s, send back REPLY_P2P_CONNECT with key: %s",
-				PeerCandidate->ToString().c_str(), SERVANT_P2P_REPLY_MESSAGE);
+			LOGI("Receiving DO_P2P_CONNECT command from peer %s, "
+                    "send back REPLY_P2P_CONNECT with key: %s",
+                    PeerCandidate->ToString().c_str(), SERVANT_P2P_REPLY_MESSAGE);
 
 		return 0;
 	} case CXM_P2P_MESSAGE_REPLY_P2P_CONNECT: {
@@ -145,6 +146,22 @@ int ServantClient::ClientStateConnecting::OnMessage(shared_ptr<ReceiveMessage> m
                     message->GetRemoteCandidate()->ToString().c_str());
             PeerCandidate = message->GetRemoteCandidate();
 		}
+
+		// send p2p connect to remote candidate again
+		Message msg;
+		memset(&msg, 0, sizeof(msg));
+		msg.type = CXM_P2P_MESSAGE_REPLY_P2P_CONNECT;
+		strncpy(msg.u.p2p.up.p2pReply.key, SERVANT_P2P_REPLY_MESSAGE, CLIENT_NAME_LENGTH);
+
+		int res = PClient->mtransport->SendTo(PeerCandidate,
+			(uint8_t *)&msg, sizeof(Message));
+		if (0 != res)
+			LOGE("Cannot send REPLY_P2P_CONNECT to %s: %d",
+				PeerCandidate->ToString().c_str(), res);
+		else
+			LOGI("Receiving REPLY_P2P_CONNECT command from peer %s, "
+                    " send again REPLY_P2P_CONNECT with key: %s",
+                    PeerCandidate->ToString().c_str(), SERVANT_P2P_REPLY_MESSAGE);
 
 		LOGI("P2P connection establis successfully between local %s and peer %s",
 			PClient->mtransport->GetLocalCandidate()->ToString().c_str(),
