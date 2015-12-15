@@ -45,11 +45,14 @@ int ServantClient::ClientStateLogining::Login()
 void ServantClient::ClientStateLogining::Logout()
 {
 	// stop self timer first
-	this->mtimer->Stop();
+	if (NULL != this->mtimer) {
+		this->mtimer->Stop();
+		this->mtimer.reset();
+	}
 
 	// change to logouting state
 	shared_ptr<ServantClient::ClientState> oldState = PClient->SetStateInternal(SERVANT_CLIENT_LOGOUTING);
-	PClient->meventThread->PutEvnet(SERVANT_CLIENT_EVENT_LOGOUT);
+	PClient->meventThread->PutEvent(SERVANT_CLIENT_EVENT_LOGOUT);
 }
 
 void ServantClient::ClientStateLogining::OnTimer()
@@ -82,7 +85,7 @@ int ServantClient::ClientStateLogining::OnMessage(shared_ptr<ReceiveMessage> mes
 	shared_ptr<ServantClient::ClientState> oldState = PClient->SetStateInternal(SERVANT_CLIENT_LOGIN);
 
 	// start p2p connection
-	PClient->meventThread->PutEvnet(SERVANT_CLIENT_EVENT_CONNECT);
+	PClient->meventThread->PutEvent(SERVANT_CLIENT_EVENT_CONNECT);
 
 	return 0;
 }

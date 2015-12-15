@@ -209,7 +209,7 @@ int ServantClient::Call()
 	}
 
 	// put login event
-	this->meventThread->PutEvnet(SERVANT_CLIENT_EVENT_LOGIN);
+	this->meventThread->PutEvent(SERVANT_CLIENT_EVENT_LOGIN);
 	return 0;
 }
 
@@ -223,7 +223,7 @@ void ServantClient::Hangup()
 	unique_lock<mutex> lock(mlogoutMutex);
 
 	// put login event
-	this->meventThread->PutEvnet(SERVANT_CLIENT_EVENT_LOGOUT);
+	this->meventThread->PutEvent(SERVANT_CLIENT_EVENT_LOGOUT);
 	// waiting for logout event arrive
 	LOGD("Hangup to wait logout event arriving");
 	mlogoutCV.wait(lock);
@@ -245,9 +245,9 @@ void ServantClient::OnEvent(int type, shared_ptr<IEventArgs> args)
 	case SERVANT_CLIENT_EVENT_LOGIN: {
 		int res = this->mstate->Login();
 		if (0 != res) {
-			LOGE("Relogin, error when procese EVENT_LOGIN by state %d: res %d",
+			LOGE("Relogin after a while, error when procese EVENT_LOGIN by state %d: res %d",
 				this->GetState(), res);
-            this->meventThread->PutEvnet(SERVANT_CLIENT_EVENT_LOGIN);
+            this->meventThread->PutEventDelay(5000, SERVANT_CLIENT_EVENT_LOGIN);
         }
 		break;
 	} case SERVANT_CLIENT_EVENT_LOGOUT: {
@@ -291,7 +291,7 @@ void ServantClient::OnData(std::shared_ptr<ReceiveData> data)
 #endif
 
 	// swith thread
-	this->meventThread->PutEvnet(SERVANT_CLIENT_EVENT_ON_DATA, message);
+	this->meventThread->PutEvent(SERVANT_CLIENT_EVENT_ON_DATA, message);
 }
 
 shared_ptr<ServantClient::ClientState> ServantClient::SetStateInternal(SERVANT_CLIENT_STATE_T state)

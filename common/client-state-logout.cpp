@@ -13,7 +13,7 @@ int ServantClient::ClientStateLogout::Login()
 	shared_ptr<ServantClient::ClientState> oldState = PClient->SetStateInternal(SERVANT_CLIENT_LOGINING);
 
 	// put login event
-	PClient->meventThread->PutEvnet(SERVANT_CLIENT_EVENT_LOGIN);
+	PClient->meventThread->PutEvent(SERVANT_CLIENT_EVENT_LOGIN);
 
 	return 0;
 }

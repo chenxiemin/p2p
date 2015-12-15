@@ -2,6 +2,7 @@
 #define _CXM_UTIL_EVENT_THREAD_H_
 
 #include <memory>
+#include <chrono>
 
 #include "thread.h"
 #include "safe-queue.h"
@@ -40,7 +41,7 @@ class EventThread : public Thread, public IRunnable
 		Thread::Join();
 	}
 
-	public: void PutEvnet(std::shared_ptr<IEvent> aevent) { meventQueue.Put(aevent); }
+	public: void PutEvent(std::shared_ptr<IEvent> aevent) { meventQueue.Put(aevent); }
 
 	public: virtual void Run()
 	{
@@ -66,9 +67,17 @@ class UnifyEventThread : public Thread, public IRunnable
 	{
 		int Type;
 		std::shared_ptr<IEventArgs> Args;
+		std::chrono::milliseconds fireTime;
 
-		public: EventObject(int type, std::shared_ptr<IEventArgs> args) :
-			Type(type), Args(args) { }
+		public: EventObject(int type, std::shared_ptr<IEventArgs> args, int mils) : Type(type), Args(args)
+		{
+			if (mils > 0)
+				fireTime = std::chrono::duration_cast<std::chrono::milliseconds>(
+					std::chrono::system_clock::now().time_since_epoch()) +
+					std::chrono::milliseconds(mils);
+			else
+				fireTime = std::chrono::milliseconds(0);
+		}
 	};
 
 	private: cxm::alg::SafeQueue<EventObject> meventQueue;
@@ -92,18 +101,34 @@ class UnifyEventThread : public Thread, public IRunnable
 		meventQueue.NotifyAll();
 
 		Thread::Join();
+		if (0 != meventQueue.Size())
+			LOGW("Unconsumed event queue size: %d", meventQueue.Size());
 	}
 
 	public: void SetSink(IEventSink *psink) { mpsink = psink; }
 
-	public: int PutEvnet(int type,
+	public: int PutEvent(int type,
 		std::shared_ptr<IEventArgs> args = std::shared_ptr<IEventArgs>(NULL))
 	{
 		if (NULL == mpsink || !misRun)
 			return -1;
 
 		std::shared_ptr<EventObject> eventObject;
-		eventObject = std::shared_ptr<EventObject>(new EventObject(type, args));
+		eventObject = std::shared_ptr<EventObject>(new EventObject(type, args, 0));
+
+		meventQueue.Put(eventObject);
+		return 0;
+	}
+
+	public: int PutEventDelay(int mils, int type,
+		std::shared_ptr<IEventArgs> args = std::shared_ptr<IEventArgs>(NULL))
+	{
+		if (NULL == mpsink || !misRun)
+			return -1;
+
+		std::shared_ptr<EventObject> eventObject;
+		eventObject = std::shared_ptr<EventObject>(new EventObject(type, args, mils));
+
 
 		meventQueue.Put(eventObject);
 		return 0;
@@ -114,8 +139,20 @@ class UnifyEventThread : public Thread, public IRunnable
 		// do event loop
 		while (misRun) {
 			std::shared_ptr<EventObject> aevent = meventQueue.Get();
-			if (NULL != aevent)
-				mpsink->OnEvent(aevent->Type, aevent->Args);
+			if (NULL == aevent.get())
+				continue;
+
+			if (aevent->fireTime.count() > 0 && aevent->fireTime >
+					std::chrono::duration_cast<std::chrono::milliseconds>(
+					std::chrono::system_clock::now().time_since_epoch())) {
+				// reput the event and wait for a moment if necessary
+				if (0 == meventQueue.Size())
+					Thread::Sleep(10);
+				meventQueue.Put(aevent);
+			} else {
+				if (NULL != aevent)
+					mpsink->OnEvent(aevent->Type, aevent->Args);
+			}
 		}
 	}
 };

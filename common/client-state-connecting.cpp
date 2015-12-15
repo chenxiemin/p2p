@@ -201,7 +201,7 @@ void ServantClient::ClientStateConnecting::Logout()
 	shared_ptr<ServantClient::ClientState> oldState =
 		PClient->SetStateInternal(SERVANT_CLIENT_LOGOUTING);
 	// resend logout event
-	PClient->meventThread->PutEvnet(SERVANT_CLIENT_EVENT_LOGOUT);
+	PClient->meventThread->PutEvent(SERVANT_CLIENT_EVENT_LOGOUT);
 }
 
 }
