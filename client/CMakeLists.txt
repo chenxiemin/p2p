@@ -28,4 +28,3 @@ if (CROSS_COMPILE_ANDROID)
     set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -pie -fPIE -march=armv7-a -mfloat-abi=softfp")
     target_link_libraries(p2pclient log)
 endif ()
-
