@@ -1,10 +1,21 @@
 cmake_minimum_required (VERSION 2.6)
 
-include_directories("../common")
+set(util_DIR "../util")
+find_package(util REQUIRED)
+
+set (common_DIR ../common)
+find_package (common REQUIRED)
+
+include_directories (${util_INCLUDE_DIRS})
+include_directories (${common_INCLUDE_DIRS})
+
 
 # source files
-FILE (GLOB SRC ./*.cpp ../common/*.cpp ../common/*.h)
+FILE (GLOB SRC ./*.cpp)
 add_executable (p2pclient ${SRC})
+
+target_link_libraries (p2pclient util)
+target_link_libraries (p2pclient common)
 
 if (MSVC)
 	target_link_libraries(p2pclient ws2_32)

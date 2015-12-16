@@ -1,10 +1,20 @@
 cmake_minimum_required (VERSION 2.6)
 
-include_directories("../common")
+set(util_DIR "../util")
+find_package(util REQUIRED)
+
+set (common_DIR ../common)
+find_package (common REQUIRED)
+
+include_directories (${util_INCLUDE_DIRS})
+include_directories (${common_INCLUDE_DIRS})
 
 # source files
-FILE (GLOB SRC ./*.cpp ../common/*.cpp ../common/*.h)
+FILE (GLOB SRC ./*.cpp)
 add_executable (p2pserver ${SRC})
+
+target_link_libraries (p2pserver util)
+target_link_libraries (p2pserver common)
 
 # linked library
 # if (MSVC)
@@ -19,11 +29,6 @@ if (MSVC)
 endif ()
 
 if (CMAKE_COMPILER_IS_GNUCC)
-    set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -O3 -std=gnu++11 -D__STDC_CONSTANT_MACROS")
+    set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -std=gnu++11 -D__STDC_CONSTANT_MACROS -g -O0")
 	target_link_libraries(p2pserver pthread)
 endif ()
-#     
-#     target_link_libraries(test-player ${LD_PATH}/SDL2main)
-# else ()
-#     target_link_libraries(test-player ${LD_PATH}/libSDL2.so)
-
