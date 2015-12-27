@@ -16,6 +16,7 @@ namespace p2p {
 int ServantClient::ClientStateLogining::Login()
 {
 	assert(NULL != PClient->mtransport.get());
+#if 0 // do not need to get network type anymore
 	// get stun type
 	PClient->mnatType = StunResolver::GetInstance()->Resolve();
 	if (STUN_NAT_TYPE_UNKNOWN == PClient->mnatType) {
@@ -23,6 +24,7 @@ int ServantClient::ClientStateLogining::Login()
 		return -1;
 	}
 	LOGI("Get current network type: %d", PClient->mnatType);
+#endif
 
 	// open transport
 	int res = PClient->mtransport->Open();
