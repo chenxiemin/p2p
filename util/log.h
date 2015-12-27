@@ -36,7 +36,11 @@
 
 #define LOGI(...) LOG(LOG_LEVEL_I, __VA_ARGS__)
 
+#ifdef WIN32
+#define __MY_FILE__ (strrchr(__FILE__, '\\') ? strrchr(__FILE__, '\\') + 1 : __FILE__)
+#else
 #define __MY_FILE__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
+#endif
 
 #ifdef ENABLE_ANDROID_LOG
 #include <android/log.h>
@@ -46,6 +50,7 @@
 	__android_log_print(ANDROID_LOG_ERROR, "MY_LOG_TAG", \
 	"%s | %s:%i", buf, __MY_FILE__, __LINE__); \
 } while (0)
+#if 0
 #elif defined(_WIN32)
 #include <iostream>
 #define LOG(level, ...) do { if (LOG_LEVEL_V == level) break; \
@@ -54,6 +59,7 @@
 	std::cout << buf << std::endl; \
 	std::cout.flush(); \
 } while (0)
+#endif
 #else
 #define LOG(level, ...) do { if (LOG_LEVEL_V == level) break; \
 	fprintf(stderr, __VA_ARGS__); \

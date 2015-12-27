@@ -164,7 +164,7 @@ void ServantServer::OnConnectMessage(std::shared_ptr<ReceiveMessage> message)
 }
 
 ServantClient::ServantClient(const char *ip, uint16_t port) :
-	mnatType(STUN_NAT_TYPE_UNKNOWN)
+	mnatType(STUN_NAT_TYPE_UNKNOWN), mpsink(NULL), mpDataSink(NULL)
 {
 	// start event thread
 	meventThread = shared_ptr<UnifyEventThread>(new UnifyEventThread("ServantClient"));
@@ -193,7 +193,7 @@ ServantClient::~ServantClient()
 	}
 }
 
-int ServantClient::Call()
+int ServantClient::Login()
 {
 	assert(NULL != mstate.get());
 	assert(NULL != meventThread.get());
@@ -213,7 +213,7 @@ int ServantClient::Call()
 	return 0;
 }
 
-void ServantClient::Hangup()
+void ServantClient::Logout()
 {
 	assert(NULL != mstate.get());
 	assert(NULL != meventThread.get());
@@ -285,9 +285,10 @@ void ServantClient::OnData(std::shared_ptr<ReceiveData> data)
 		return;
 	}
 #if 1
-	LOGD("Client receive message type %d from %s",
+	LOGD("Client receive message type %d from %s at current status %d",
             message->GetMessage()->type,
-            data->GetRemoteCandidate()->ToString().c_str());
+				data->GetRemoteCandidate()->ToString().c_str(),
+				this->GetState());
 #endif
 
 	// swith thread

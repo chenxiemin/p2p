@@ -15,6 +15,7 @@
 #include "timer.h"
 #include "transceiver.h"
 #include "stun-resolver.h"
+#include "event-args.h"
 
 namespace cxm {
 namespace p2p {
@@ -87,14 +88,30 @@ typedef enum {
 	SERVANT_CLIENT_ERROR_UNKNOWN
 } SERVANT_CLIENT_ERROR_T;
 
+class P2PPacket
+{
+	private: std::shared_ptr<ReceiveData> mrecvData;
+	public: P2PPacket(std::shared_ptr<ReceiveData> data) : mrecvData(data) { }
+
+	public: uint8_t *GetData() { return mrecvData->GetBuffer() + sizeof(Message); }
+	public: int GetLength() { return mrecvData->GetLength() - sizeof(Message); }
+	public: std::shared_ptr<Candidate> GetRemoteCandidate() { return mrecvData->GetRemoteCandidate(); }
+};
+
 class IServantClientSink
 {
 	public: virtual ~IServantClientSink() { }
 	public: virtual void OnConnect() = 0;
 	public: virtual void OnDisconnect() = 0;
 
-	public: virtual void OnData(const uint8_t *buf, int len) = 0;
 	public: virtual void OnError(SERVANT_CLIENT_ERROR_T error, void *opaque) = 0;
+};
+
+class IServantClientDataSink
+{
+	public: virtual ~IServantClientDataSink() { }
+
+	public: virtual void OnData(std::shared_ptr<P2PPacket> packet) = 0;
 };
 
 class ServantClient : cxm::p2p::IReveiverSinkU, cxm::util::IEventSink
@@ -253,12 +270,14 @@ class ServantClient : cxm::p2p::IReveiverSinkU, cxm::util::IEventSink
 	private: std::condition_variable mlogoutCV;
 			 
 	private: IServantClientSink *mpsink;
+	private: IServantClientDataSink *mpDataSink;
 
 	public: ServantClient(const char *serverIp,
 		uint16_t port = ServantServer::SERVANT_SERVER_PORT);
 	public: virtual ~ServantClient();
 
 	public: void SetSink(IServantClientSink *sink) { mpsink = sink; }
+	public: void SetDataSink(IServantClientDataSink *sink) { mpDataSink = sink; }
 	public: void SetName(std::string name) { mname = name; }
 	public: void SetRemote(std::string remote) { mremotePeer = remote; }
 	public: SERVANT_CLIENT_STATE_T GetState() { return mstate->State; }
@@ -269,8 +288,11 @@ class ServantClient : cxm::p2p::IReveiverSinkU, cxm::util::IEventSink
 	private: std::shared_ptr<ClientState> SetStateInternal(SERVANT_CLIENT_STATE_T state);
 	private: std::shared_ptr<ClientState> GetStateInternal() { return mstate; }
 
-	public: int Call();
-	public: void Hangup();
+	public: int Login();
+	public: void Logout();
+
+	public: int Connect();
+	public: void Disconnect();
 
 	public: int SendTo(const uint8_t *buffer, int len);
 
@@ -292,17 +314,17 @@ class ServantClient : cxm::p2p::IReveiverSinkU, cxm::util::IEventSink
 			mpsink->OnDisconnect();
 	}
 
-	public: void FireOnDataNofity(const uint8_t *buf, int len)
+	public: void FireOnDataNofity(std::shared_ptr<P2PPacket> packet)
 	{
-		if (NULL != this->mpsink)
-			mpsink->OnData(buf, len);
+		if (NULL != this->mpDataSink)
+			mpDataSink->OnData(packet);
 	}
 	
 	private: virtual void OnEvent(int type, std::shared_ptr<cxm::util::IEventArgs> args);
 	private: virtual void OnData(std::shared_ptr<ReceiveData> data);
 
-	private: int DoRequest();
-	private: int DoConnect();
+	// private: int DoRequest();
+	// private: int DoConnect();
 
 	private: void OnReplyRequest(const Message *pmsg);
 	private: void OnReplyConnect(const Message *pmsg);

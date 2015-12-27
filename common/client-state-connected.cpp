@@ -50,8 +50,7 @@ int ServantClient::ClientStateConnected::OnMessage(shared_ptr<ReceiveMessage> me
 	}
 	
 	shared_ptr<ReceiveData> recvData = message->GetReceiveData();
-	PClient->FireOnDataNofity(recvData->GetBuffer() + sizeof(Message),
-		recvData->GetLength() - sizeof(Message));
+	PClient->FireOnDataNofity(shared_ptr<P2PPacket>(new P2PPacket(recvData)));
 
 	return 0;
 }

@@ -35,7 +35,7 @@ class Timer : public IRunnable
 		mpsink = psink;
 		mduration = interval;
 		minterval = interval;
-		monce = std::chrono::milliseconds(100);
+		monce = std::chrono::milliseconds(10);
 	}
 
 	public: virtual ~Timer()
