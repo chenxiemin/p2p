@@ -29,6 +29,20 @@ if (MSVC)
 endif ()
 
 if (CMAKE_COMPILER_IS_GNUCC)
-    set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -std=gnu++11 -D__STDC_CONSTANT_MACROS -g -O0")
+    if (NOT CROSS_COMPILE_HI)
+        set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -std=gnu++11 -D__STDC_CONSTANT_MACROS")
+    else ()
+        set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -std=c++0x -D__STDC_CONSTANT_MACROS -D_GLIBCXX_USE_NANOSLEEP")
+    endif ()
 	target_link_libraries(p2pserver pthread)
 endif ()
+
+if (CROSS_COMPILE_HI)
+    message (STATUS "Cross compile hi project...")
+
+    set(CMAKE_SYSTEM_NAME Linux)
+    set(CMAKE_SYSTEM_VERSION 1)
+    set(CMAKE_C_COMPILER arm-hisiv100nptl-linux-gcc)
+    set(CMAKE_CXX_COMPILER arm-hisiv100nptl-linux-g++)
+endif ()
+

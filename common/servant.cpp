@@ -94,7 +94,7 @@ void ServantServer::OnLogoutMessage(std::shared_ptr<ReceiveMessage> message)
 {
 	string clientName = message->GetMessage()->u.client.clientName;
 	if (NULL != mclientList[clientName]) {
-		mclientList[clientName] = NULL;
+		mclientList[clientName].reset();
 		LOGI("Client %s logout", clientName.c_str());
 	}
 }

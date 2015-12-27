@@ -27,11 +27,12 @@ class Timer : public IRunnable
 	private: std::chrono::milliseconds monce;
 
 	private: std::shared_ptr<Thread> mthread;
-	private: bool misRun = false;
+	private: bool misRun;
 
 	public: Timer(ITimerSink *psink, std::chrono::microseconds interval)
 	{
 		assert(NULL != psink);
+        misRun = false;
 		mpsink = psink;
 		mduration = interval;
 		minterval = interval;

@@ -107,8 +107,8 @@ class UnifyEventThread : public Thread, public IRunnable
 
 	public: void SetSink(IEventSink *psink) { mpsink = psink; }
 
-	public: int PutEvent(int type,
-		std::shared_ptr<IEventArgs> args = std::shared_ptr<IEventArgs>(NULL))
+    public: int PutEvent(int type, std::shared_ptr<IEventArgs> args = 
+                    std::shared_ptr<IEventArgs>())
 	{
 		if (NULL == mpsink || !misRun)
 			return -1;
@@ -120,8 +120,9 @@ class UnifyEventThread : public Thread, public IRunnable
 		return 0;
 	}
 
-	public: int PutEventDelay(int mils, int type,
-		std::shared_ptr<IEventArgs> args = std::shared_ptr<IEventArgs>(NULL))
+    public: int PutEventDelay(int mils, int type,
+                    std::shared_ptr<IEventArgs> args =
+                    std::shared_ptr<IEventArgs>())
 	{
 		if (NULL == mpsink || !misRun)
 			return -1;
@@ -160,3 +161,4 @@ class UnifyEventThread : public Thread, public IRunnable
 }
 }
 #endif
+
