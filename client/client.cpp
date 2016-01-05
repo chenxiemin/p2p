@@ -19,13 +19,16 @@ class MyAgent : public IServantClientSink, public IServantClientDataSink,
 	shared_ptr<Timer> mtimer;
 	int count;
 
-	public: MyAgent(const char *ip, const char *name, const char *remote)
+	public: MyAgent(const char *ip, const char *name, const char *remote = NULL)
 	{
 		mstr = "chenxiemin";
 
 		msc = shared_ptr<ServantClient>(new ServantClient(ip));
 		msc->SetName(name);
-		msc->SetRemote(remote);
+		if (NULL != remote)
+			msc->SetRemote(remote);
+		else
+			msc->SetRemote("");
 		msc->SetSink(this);
         msc->SetDataSink(this);
 
@@ -41,6 +44,20 @@ class MyAgent : public IServantClientSink, public IServantClientDataSink,
 	public: ~MyAgent()
 	{
 		msc->Logout();
+	}
+
+	public: virtual void OnLogin()
+	{
+		LOGI("OnLogin with remote name: %s", this->msc->GetRemote().c_str());
+
+		// auto connect after login
+		if (this->msc->GetRemote().length() > 0)
+			this->msc->Connect();
+	}
+
+	public: virtual void OnLogout()
+	{
+		LOGI("OnLogout");
 	}
 
 	public: virtual void OnConnect()
@@ -85,7 +102,7 @@ class MyAgent : public IServantClientSink, public IServantClientDataSink,
 
 int main(int argc, char **argv)
 {
-	if (4 != argc) {
+	if (argc < 3) {
 		LOGE("Usage: ./p2pclient servantip myname remotename");
 		return -1;
 	}

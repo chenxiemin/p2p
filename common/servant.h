@@ -101,6 +101,8 @@ class P2PPacket
 class IServantClientSink
 {
 	public: virtual ~IServantClientSink() { }
+	public: virtual void OnLogin() = 0;
+	public: virtual void OnLogout() = 0;
 	public: virtual void OnConnect() = 0;
 	public: virtual void OnDisconnect() = 0;
 
@@ -151,6 +153,8 @@ class ServantClient : cxm::p2p::IReveiverSinkU, cxm::util::IEventSink
 
 		virtual int SendTo(const uint8_t *buffer, int len) { return -1; }
 		virtual int OnMessage(std::shared_ptr<ReceiveMessage> pmsg) { return -1; };
+
+		virtual void OnStateForeground() { }
 	};
 	private: struct ClientStateLogout : public ClientState
 	{
@@ -193,6 +197,9 @@ class ServantClient : cxm::p2p::IReveiverSinkU, cxm::util::IEventSink
 
 		virtual int Connect();
 		virtual void Logout();
+
+		virtual int OnMessage(std::shared_ptr<ReceiveMessage> message);
+		virtual void OnStateForeground();
 	};
 	private: struct ClientStateLogouting : public ClientState
 	{
@@ -296,11 +303,17 @@ class ServantClient : cxm::p2p::IReveiverSinkU, cxm::util::IEventSink
 
 	public: int SendTo(const uint8_t *buffer, int len);
 
-#if 0
-	// connect to remote candidate
-	public: int Connect();
-	public: void Disconnect();
-#endif
+	public: void FireOnLoginNofity()
+	{
+		if (NULL != this->mpsink)
+			mpsink->OnLogin();
+	}
+
+	public: void FireOnLogoutNofity()
+	{
+		if (NULL != this->mpsink)
+			mpsink->OnLogout();
+	}
 
 	public: void FireOnConnectNofity()
 	{

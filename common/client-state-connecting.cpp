@@ -72,7 +72,7 @@ int ServantClient::ClientStateConnecting::OnMessage(shared_ptr<ReceiveMessage> m
 {
 	switch (message->GetMessage()->type) {
 	case CXM_P2P_MESSAGE_REPLY_REQUEST: {
-		if (CXM_P2P_REPLY_REQUEST_RESULT_OK !=
+		if (CXM_P2P_REPLY_RESULT_OK !=
 			message->GetMessage()->u.client.uc.replyRequest.result) {
 			LOGI("Request peer address error: %d",
 				message->GetMessage()->u.client.uc.replyRequest.result);

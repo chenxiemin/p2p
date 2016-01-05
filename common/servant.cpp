@@ -114,11 +114,11 @@ void ServantServer::OnRequestMessage(std::shared_ptr<ReceiveMessage> message)
 	Message msgReply;
 	msgReply.type = CXM_P2P_MESSAGE_REPLY_REQUEST;
 	if (NULL != requestPeerCandidate.get()) {
-		msgReply.u.client.uc.replyRequest.result = CXM_P2P_REPLY_REQUEST_RESULT_OK;
+		msgReply.u.client.uc.replyRequest.result = CXM_P2P_REPLY_RESULT_OK;
 		msgReply.u.client.uc.replyRequest.remoteIp = requestPeerCandidate->Ip();
 		msgReply.u.client.uc.replyRequest.remotePort = requestPeerCandidate->Port();
 	} else {
-		msgReply.u.client.uc.replyRequest.result = CXM_P2P_REPLY_REQUEST_RESULT_UNKNOWN_PEER;
+		msgReply.u.client.uc.replyRequest.result = CXM_P2P_REPLY_RESULT_UNKNOWN_PEER;
 	}
 
 	int res = this->mtransceiver->SendTo(clientCandidate,
@@ -146,12 +146,23 @@ void ServantServer::OnConnectMessage(std::shared_ptr<ReceiveMessage> message)
 
 	Message msgReply;
 	msgReply.type = CXM_P2P_MESSAGE_REPLY_CONNECT;
+	msgReply.u.client.uc.replyConnect.remoteIp = mclientList[slaveClient]->Ip();
+	msgReply.u.client.uc.replyConnect.remotePort = mclientList[slaveClient]->Port();
+	strcpy(msgReply.u.client.uc.replyConnect.remoteName, slaveClient.c_str());
+
 	int res = this->mtransceiver->SendTo(mclientList[masterClient],
 		(uint8_t *)&msgReply, sizeof(Message));
 	if (res < 0) {
 		LOGE("Cannot send p2p reply connect: %d", res);
 		return;
 	}
+
+	memset(&msgReply, 0, sizeof(msgReply));
+	msgReply.type = CXM_P2P_MESSAGE_REPLY_CONNECT;
+	msgReply.u.client.uc.replyConnect.remoteIp = mclientList[masterClient]->Ip();
+	msgReply.u.client.uc.replyConnect.remotePort = mclientList[masterClient]->Port();
+	strcpy(msgReply.u.client.uc.replyConnect.remoteName, masterClient.c_str());
+
 	res = this->mtransceiver->SendTo(mclientList[slaveClient],
 		(uint8_t *)&msgReply, sizeof(Message));
 	if (res < 0) {
@@ -197,14 +208,13 @@ int ServantClient::Login()
 {
 	assert(NULL != mstate.get());
 	assert(NULL != meventThread.get());
-	if (mname.length() <= 0 || mname.length() > CLIENT_NAME_LENGTH ||
-		mremotePeer.length() <= 0 || mremotePeer.length() > CLIENT_NAME_LENGTH) {
+	if (mname.length() <= 0 || mname.length() > CLIENT_NAME_LENGTH) {
 		LOGE("Invalid argument: %s", mname.c_str());
 		return -1;
 	}
 
 	if (SERVANT_CLIENT_LOGOUT != this->GetState()) {
-		LOGE("Invalid state during call: %d", this->GetState());
+		LOGE("Invalid state during login: %d", this->GetState());
 		return -1;
 	}
 
@@ -228,6 +238,30 @@ void ServantClient::Logout()
 	LOGD("Hangup to wait logout event arriving");
 	mlogoutCV.wait(lock);
 	LOGD("Hangup success");
+}
+
+int ServantClient::Connect()
+{
+	assert(NULL != mstate.get());
+	assert(NULL != meventThread.get());
+	if (mremotePeer.length() <= 0 ||
+		mremotePeer.length() > CLIENT_NAME_LENGTH) {
+		LOGE("Invalid argument: %s", mremotePeer.c_str());
+		return -1;
+	}
+
+	if (SERVANT_CLIENT_LOGIN != this->GetState()) {
+		LOGE("Invalid state during connect: %d", this->GetState());
+		return -1;
+	}
+
+	// put login event
+	this->meventThread->PutEvent(SERVANT_CLIENT_EVENT_CONNECT);
+	return 0;
+}
+
+void ServantClient::Disconnect()
+{
 }
 
 int ServantClient::SendTo(const uint8_t *buffer, int len)
@@ -324,6 +358,8 @@ shared_ptr<ServantClient::ClientState> ServantClient::SetStateInternal(SERVANT_C
 		mstate = shared_ptr<ClientState>(new ClientStateLogout(this));
 		break;
 	}
+
+	mstate->OnStateForeground();
 
 	if (NULL != oldState.get())
 		LOGI("Change state to %d from %d", mstate->State, oldState->State);
