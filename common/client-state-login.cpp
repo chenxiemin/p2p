@@ -26,7 +26,7 @@ int ServantClient::ClientStateLogin::OnMessage(std::shared_ptr<ReceiveMessage> m
 	shared_ptr<Candidate> peerCandidate = shared_ptr<Candidate>(
 		new Candidate(msg->u.client.uc.replyConnect.remoteIp, msg->u.client.uc.replyConnect.remotePort));
 	LOGI("Receive REPLY_CONNECT on state login: %s %s",
-		msg->u.client.uc.replyConnect.remoteName, peerCandidate->ToString());
+		msg->u.client.uc.replyConnect.remoteName, peerCandidate->ToString().c_str());
 	
 	// TODO authentication
 
