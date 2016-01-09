@@ -123,6 +123,10 @@ class ServantClient : cxm::p2p::IReveiverSinkU, cxm::util::IEventSink
 	public: static const int SERVANT_CLIENT_PORT = 8887;
 	public: static const int SERVANT_CLIENT_REPLY_PORT = 8886;
 
+	public: static const int SERVANT_CLIENT_SERVER_KEEP_ALIVE_DELTA_MILS = 1000 * 60;
+	public: static const int SERVANT_CLIENT_PEER_KEEP_ALIVE_DELTA_MILS = 1000 * 5;
+	public: static const int SERVANT_CLIENT_PEER_KEEP_ALIVE_TIMEOUT = 1000 * 30;
+
 	public: typedef enum {
 		SERVANT_CLIENT_LOGOUT,
 		SERVANT_CLIENT_LOGINING,
@@ -213,7 +217,6 @@ class ServantClient : cxm::p2p::IReveiverSinkU, cxm::util::IEventSink
 	private: struct ClientStateConnecting : public ClientState, public cxm::util::ITimerSink
 	{
 		SERVANT_CLIENT_STATE_T State;
-		std::shared_ptr<Candidate> PeerCandidate;
 		// timer for triggering connecting request repeativity
 		std::shared_ptr<cxm::util::Timer> mtimer;
 		std::mutex mmutex;
@@ -231,7 +234,6 @@ class ServantClient : cxm::p2p::IReveiverSinkU, cxm::util::IEventSink
 	private: struct ClientStateConnected : public ClientState
 	{
 		SERVANT_CLIENT_STATE_T State;
-		std::shared_ptr<Candidate> PeerCandidate;
 		uint8_t Buffer[TransceiverU::MAX_RECEIVE_BUFFER_SIZE];
 
 		ClientStateConnected(ServantClient *client) :
@@ -240,6 +242,7 @@ class ServantClient : cxm::p2p::IReveiverSinkU, cxm::util::IEventSink
 		virtual int SendTo(const uint8_t *buffer, int len);
 		virtual int OnMessage(std::shared_ptr<ReceiveMessage> message);
 		virtual void Logout();
+		virtual void Disconnect();
 	};
 	private: struct ClientStateDisconnecting : public ClientState
 	{
@@ -249,6 +252,8 @@ class ServantClient : cxm::p2p::IReveiverSinkU, cxm::util::IEventSink
 			ClientState(SERVANT_CLIENT_DISCONNECTING, client) { }
 
 		virtual void Logout();
+		virtual void Disconnect();
+		void DisconnectInternal();
 	};
 
 	private: typedef enum {
@@ -257,6 +262,8 @@ class ServantClient : cxm::p2p::IReveiverSinkU, cxm::util::IEventSink
 		SERVANT_CLIENT_EVENT_CONNECT,
 		SERVANT_CLIENT_EVENT_DISCONNECT,
 		SERVANT_CLIENT_EVENT_ON_DATA,
+		SERVANT_CLIENT_EVENT_SERVER_KEEP_ALIVE, // keep alive for p2p server
+		SERVANT_CLIENT_EVENT_PEER_KEEP_ALIVE, // keep alive for remote peer
 	} SERVANT_CLIENT_EVENT_T;
 
 	// transport for communicating with other candidates, include P2P Server and peers
@@ -278,6 +285,13 @@ class ServantClient : cxm::p2p::IReveiverSinkU, cxm::util::IEventSink
 			 
 	private: IServantClientSink *mpsink;
 	private: IServantClientDataSink *mpDataSink;
+
+	// candidate of remote peer
+	private: std::shared_ptr<Candidate> PeerCandidate;
+			
+	private: bool misServerKeepAlive;
+	private: bool misPeerKeepAlive;
+	private: std::chrono::system_clock::time_point mlastPeerKeepAliveTime;
 
 	public: ServantClient(const char *serverIp,
 		uint16_t port = ServantServer::SERVANT_SERVER_PORT);
@@ -332,6 +346,12 @@ class ServantClient : cxm::p2p::IReveiverSinkU, cxm::util::IEventSink
 		if (NULL != this->mpDataSink)
 			mpDataSink->OnData(packet);
 	}
+
+	private: void StartServerKeepAlive();
+	private: void StopServerKeepAlive();
+
+	private: void StartPeerKeepAlive();
+	private: void StopPeerKeepAlive();
 	
 	private: virtual void OnEvent(int type, std::shared_ptr<cxm::util::IEventArgs> args);
 	private: virtual void OnData(std::shared_ptr<ReceiveData> data);

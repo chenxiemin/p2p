@@ -71,7 +71,8 @@ class MyAgent : public IServantClientSink, public IServantClientDataSink,
 	public: virtual void OnDisconnect()
 	{
 		LOGI("OnDisconnect");
-		mtimer->Stop();
+		if (NULL != mtimer.get())
+			mtimer->Stop();
 		mtimer.reset();
 	}
 

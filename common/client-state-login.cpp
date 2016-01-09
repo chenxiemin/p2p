@@ -10,8 +10,6 @@ namespace p2p {
 
 void ServantClient::ClientStateLogin::OnStateForeground()
 {
-	// Notify connect
-	PClient->FireOnLoginNofity();
 }
 
 int ServantClient::ClientStateLogin::OnMessage(std::shared_ptr<ReceiveMessage> message)
@@ -41,7 +39,7 @@ int ServantClient::ClientStateLogin::OnMessage(std::shared_ptr<ReceiveMessage> m
 	assert(NULL != connectingState.get());
 
 	// trigger connecting state to do p2p connect with remote peer
-	connectingState->PeerCandidate = peerCandidate;
+	PClient->PeerCandidate = peerCandidate;
 	connectingState->OnMessage(message);
 
 	return 0;

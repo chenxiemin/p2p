@@ -60,6 +60,10 @@ void ServantServer::OnData(shared_ptr<ReceiveData> data)
 	case CXM_P2P_MESSAGE_CONNECT:
 		OnConnectMessage(message);
 		break;
+	case CXM_P2P_MESSAGE_SERVER_KEEP_ALIVE:
+		LOGE("Client keep alive message from %s",
+			message->GetMessage()->u.client.clientName);
+		break;
 	default:
 		LOGE("Unknown message type: %d", message->GetMessage()->type);
 		break;
@@ -175,7 +179,8 @@ void ServantServer::OnConnectMessage(std::shared_ptr<ReceiveMessage> message)
 }
 
 ServantClient::ServantClient(const char *ip, uint16_t port) :
-	mnatType(STUN_NAT_TYPE_UNKNOWN), mpsink(NULL), mpDataSink(NULL)
+	mnatType(STUN_NAT_TYPE_UNKNOWN), mpsink(NULL), mpDataSink(NULL),
+	misServerKeepAlive(false), misPeerKeepAlive(false)
 {
 	// start event thread
 	meventThread = shared_ptr<UnifyEventThread>(new UnifyEventThread("ServantClient"));
@@ -190,6 +195,7 @@ ServantClient::ServantClient(const char *ip, uint16_t port) :
 
 	// LOGOUT is the beginning state
 	this->SetStateInternal(SERVANT_CLIENT_LOGOUT);
+	this->mlastPeerKeepAliveTime = system_clock::now();
 }
 
 ServantClient::~ServantClient()
@@ -262,6 +268,15 @@ int ServantClient::Connect()
 
 void ServantClient::Disconnect()
 {
+	assert(NULL != mstate.get());
+	assert(NULL != meventThread.get());
+
+	if (SERVANT_CLIENT_CONNECTED != this->GetState()) {
+		LOGE("Invalid state during connect: %d", this->GetState());
+		return;
+	}
+
+	this->meventThread->PutEvent(SERVANT_CLIENT_EVENT_DISCONNECT);
 }
 
 int ServantClient::SendTo(const uint8_t *buffer, int len)
@@ -269,6 +284,33 @@ int ServantClient::SendTo(const uint8_t *buffer, int len)
 	assert(NULL != mstate.get());
 	return mstate->SendTo(buffer, len);
 }
+
+void ServantClient::StartServerKeepAlive()
+{
+	assert(NULL != mstate.get() && this->GetState() == SERVANT_CLIENT_LOGIN);
+	this->misServerKeepAlive = true;
+	this->meventThread->PutEvent(SERVANT_CLIENT_EVENT_SERVER_KEEP_ALIVE);
+}
+
+void ServantClient::StopServerKeepAlive()
+{
+	this->misServerKeepAlive = false;
+}
+
+void ServantClient::StartPeerKeepAlive()
+{
+	assert(NULL != mstate.get() && this->GetState() == SERVANT_CLIENT_CONNECTED);
+
+	this->misPeerKeepAlive = true;
+	this->mlastPeerKeepAliveTime = system_clock::now();
+	this->meventThread->PutEvent(SERVANT_CLIENT_EVENT_PEER_KEEP_ALIVE);
+}
+
+void ServantClient::StopPeerKeepAlive()
+{
+	this->misPeerKeepAlive = false;
+}
+
 
 void ServantClient::OnEvent(int type, shared_ptr<IEventArgs> args)
 {
@@ -293,10 +335,63 @@ void ServantClient::OnEvent(int type, shared_ptr<IEventArgs> args)
 			LOGE("Error when process EVENT_CONNECT by state %d: res %d",
 				this->GetState(), res);
 		break;
+	} case SERVANT_CLIENT_EVENT_DISCONNECT: {
+		this->mstate->Disconnect();
+		break;
+	} case SERVANT_CLIENT_EVENT_SERVER_KEEP_ALIVE: {
+		if (!misServerKeepAlive)
+			break;
+
+		// request peer address from server
+		Message msg;
+		msg.type = CXM_P2P_MESSAGE_SERVER_KEEP_ALIVE;
+		strcpy(msg.u.client.clientName, this->GetName().c_str());
+
+		int res = this->mtransport->SendTo(this->mserverCandidate,
+			(uint8_t *)&msg, sizeof(Message));
+		if (0 != res)
+			LOGE("Send server keep alive message fail: %d", res);
+
+		// reput keep alive event
+		this->meventThread->PutEventDelay(SERVANT_CLIENT_SERVER_KEEP_ALIVE_DELTA_MILS,
+			SERVANT_CLIENT_EVENT_SERVER_KEEP_ALIVE);
+		break;
+	} case SERVANT_CLIENT_EVENT_PEER_KEEP_ALIVE: {
+		if (!misPeerKeepAlive)
+			break;
+
+		// request peer address from server
+		Message msg;
+		msg.type = CXM_P2P_MESSAGE_PEER_KEEP_ALIVE;
+		strcpy(msg.u.client.clientName, this->GetName().c_str());
+
+		int res = this->mtransport->SendTo(PeerCandidate,
+			(uint8_t *)&msg, sizeof(Message));
+		if (0 != res)
+			LOGE("Send peer keep alive message fail: %d", res);
+
+		// check keep alive timeout
+		milliseconds delta = duration_cast<milliseconds>(system_clock::now() - mlastPeerKeepAliveTime);
+		if (delta.count() > SERVANT_CLIENT_PEER_KEEP_ALIVE_TIMEOUT) {
+			LOGE("Timeout on remote peer keep alive, disconnect");
+			this->Disconnect();
+			break;
+		}
+
+		// reput keep alive event
+		this->meventThread->PutEventDelay(SERVANT_CLIENT_PEER_KEEP_ALIVE_DELTA_MILS,
+			SERVANT_CLIENT_EVENT_PEER_KEEP_ALIVE);
+		break;
 	} case SERVANT_CLIENT_EVENT_ON_DATA: {
 		shared_ptr<ReceiveMessage> message = dynamic_pointer_cast<ReceiveMessage>(args);
 		if (NULL == message.get()) {
 			LOGE("Invalid args when ON_DATA: %p", args.get());
+			break;
+		}
+		if (message->GetMessage()->type == CXM_P2P_MESSAGE_PEER_KEEP_ALIVE) {
+			LOGD("Client %s receive peer keep alive message from %s",
+				this->GetName().c_str(), message->GetMessage()->u.client.clientName);
+			mlastPeerKeepAliveTime = system_clock::now();
 			break;
 		}
 

@@ -24,13 +24,19 @@ void ServantClient::ClientStateLogouting::Logout()
 	if (0 != res)
 		LOGE("Cannot send logout message: %d", res);
 
+	// stop p2p server keep alive
+	PClient->StopServerKeepAlive();
+
 	// close server transport
 	if (NULL != PClient->mtransport.get()) {
 		PClient->mtransport->Close();
 		PClient->mtransport.reset();
 	}
 
-	// notify logout
+	// fire notify
+	PClient->FireOnDisconnectNofity();
+
+	// notify CV
 	LOGD("Before notify logout success");
 	unique_lock<mutex> lock(PClient->mlogoutMutex);
 	PClient->mlogoutCV.notify_one();

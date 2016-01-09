@@ -86,6 +86,13 @@ int ServantClient::ClientStateLogining::OnMessage(shared_ptr<ReceiveMessage> mes
 	// receive login success message, goto login state
 	shared_ptr<ServantClient::ClientState> oldState = PClient->SetStateInternal(SERVANT_CLIENT_LOGIN);
 
+	// Notify connect
+	PClient->FireOnLoginNofity();
+	// start keep alive for p2p server
+	PClient->StartServerKeepAlive();
+
+	// start login keep alive
+
 #if 0 // do not auto connect
 	// start p2p connection
 	PClient->meventThread->PutEvent(SERVANT_CLIENT_EVENT_CONNECT);

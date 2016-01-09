@@ -9,13 +9,16 @@ namespace p2p {
 
 void ServantClient::ClientStateConnected::Logout()
 {
-	// fire notify
-	PClient->FireOnDisconnectNofity();
-
-	// change to logouting state
-	shared_ptr<ServantClient::ClientState> oldState = PClient->SetStateInternal(SERVANT_CLIENT_LOGOUTING);
+	shared_ptr<ServantClient::ClientState> oldState = PClient->SetStateInternal(SERVANT_CLIENT_DISCONNECTING);
 	// resend logout event
 	PClient->meventThread->PutEvent(SERVANT_CLIENT_EVENT_LOGOUT);
+}
+
+void ServantClient::ClientStateConnected::Disconnect()
+{
+	shared_ptr<ServantClient::ClientState> oldState = PClient->SetStateInternal(SERVANT_CLIENT_DISCONNECTING);
+	// resend disconnect event
+	PClient->meventThread->PutEvent(SERVANT_CLIENT_EVENT_DISCONNECT);
 }
 
 int ServantClient::ClientStateConnected::SendTo(const uint8_t *buf, int len)
@@ -31,26 +34,29 @@ int ServantClient::ClientStateConnected::SendTo(const uint8_t *buf, int len)
 	memcpy(Buffer, &msg, sizeof(Message));
 	memcpy(Buffer + sizeof(Message), buf, len);
 
-	return PClient->mtransport->SendTo(PeerCandidate, Buffer, sizeof(Message) + len);
+	return PClient->mtransport->SendTo(PClient->PeerCandidate, Buffer, sizeof(Message)+len);
 }
 
 int ServantClient::ClientStateConnected::OnMessage(shared_ptr<ReceiveMessage> message)
 {
-	if (!message->GetRemoteCandidate()->Equal(PeerCandidate)) {
+	if (!message->GetRemoteCandidate()->Equal(PClient->PeerCandidate)) {
 		LOGE("Unwanted message from peer: %s %s",
 			message->GetRemoteCandidate()->ToString().c_str(),
-			PeerCandidate->ToString().c_str());
+			PClient->PeerCandidate->ToString().c_str());
 		return -1;
 	}
 
 	const Message *pmsg = message->GetMessage();
-	if (CXM_P2P_MESSAGE_USER_DATA != pmsg->type) {
+	if (CXM_P2P_MESSAGE_USER_DATA == pmsg->type) {
+		shared_ptr<ReceiveData> recvData = message->GetReceiveData();
+		PClient->FireOnDataNofity(shared_ptr<P2PPacket>(new P2PPacket(recvData)));
+	} else if (CXM_P2P_MESSAGE_PEER_DISCONNECT == pmsg->type) {
+		PClient->Disconnect();
+	} else {
 		LOGE("Unwant message type: %d", pmsg->type);
 		return -1;
 	}
 	
-	shared_ptr<ReceiveData> recvData = message->GetReceiveData();
-	PClient->FireOnDataNofity(shared_ptr<P2PPacket>(new P2PPacket(recvData)));
 
 	return 0;
 }
