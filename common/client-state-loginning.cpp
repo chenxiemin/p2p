@@ -34,7 +34,9 @@ int ServantClient::ClientStateLogining::Login()
 		return -1;
 	}
 
+#if 0
 	StunResolver::GetInstance()->Resolve();
+#endif
 
 	this->OnTimer();
 
