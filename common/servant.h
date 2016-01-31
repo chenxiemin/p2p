@@ -124,8 +124,8 @@ class ServantClient : cxm::p2p::IReveiverSinkU, cxm::util::IEventSink
 	public: static const int SERVANT_CLIENT_REPLY_PORT = 8886;
 
 	public: static const int SERVANT_CLIENT_SERVER_KEEP_ALIVE_DELTA_MILS = 1000 * 60;
-	public: static const int SERVANT_CLIENT_PEER_KEEP_ALIVE_DELTA_MILS = 1000 * 5;
-	public: static const int SERVANT_CLIENT_PEER_KEEP_ALIVE_TIMEOUT = 1000 * 30;
+	public: static const int SERVANT_CLIENT_PEER_KEEP_ALIVE_DELTA_MILS = 500;
+	public: static const int SERVANT_CLIENT_PEER_KEEP_ALIVE_TIMEOUT = 1000 * 3;
 
 	public: typedef enum {
 		SERVANT_CLIENT_LOGOUT,
