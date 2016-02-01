@@ -152,6 +152,7 @@ void ServantServer::OnConnectMessage(std::shared_ptr<ReceiveMessage> message)
 	msgReply.type = CXM_P2P_MESSAGE_REPLY_CONNECT;
 	msgReply.u.client.uc.replyConnect.remoteIp = mclientList[slaveClient]->Ip();
 	msgReply.u.client.uc.replyConnect.remotePort = mclientList[slaveClient]->Port();
+	msgReply.u.client.uc.replyConnect.peerRole = CXM_P2P_PEER_ROLE_MASTER;
 	strcpy(msgReply.u.client.uc.replyConnect.remoteName, slaveClient.c_str());
 
 	int res = this->mtransceiver->SendTo(mclientList[masterClient],
@@ -165,6 +166,7 @@ void ServantServer::OnConnectMessage(std::shared_ptr<ReceiveMessage> message)
 	msgReply.type = CXM_P2P_MESSAGE_REPLY_CONNECT;
 	msgReply.u.client.uc.replyConnect.remoteIp = mclientList[masterClient]->Ip();
 	msgReply.u.client.uc.replyConnect.remotePort = mclientList[masterClient]->Port();
+	msgReply.u.client.uc.replyConnect.peerRole = CXM_P2P_PEER_ROLE_SLAVE;
 	strcpy(msgReply.u.client.uc.replyConnect.remoteName, masterClient.c_str());
 
 	res = this->mtransceiver->SendTo(mclientList[slaveClient],

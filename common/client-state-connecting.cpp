@@ -87,6 +87,10 @@ int ServantClient::ClientStateConnecting::OnMessage(shared_ptr<ReceiveMessage> m
 
 		return 0;
 	} case CXM_P2P_MESSAGE_REPLY_CONNECT: {
+        CXM_P2P_PEER_ROLE_T peerRole = (CXM_P2P_PEER_ROLE_T)
+            message->GetMessage()->u.client.uc.replyConnect.peerRole;
+        LOGD("Receive REPLY_CONNECT with role: %d", peerRole);
+
 		// after server send this message, connect to the real peer
 		// send p2p connect to remote client
 		Message msg;
@@ -94,20 +98,43 @@ int ServantClient::ClientStateConnecting::OnMessage(shared_ptr<ReceiveMessage> m
 		msg.type = CXM_P2P_MESSAGE_DO_P2P_CONNECT;
 		strncpy(msg.u.p2p.up.p2p.key, SERVANT_P2P_MESSAGE, CLIENT_NAME_LENGTH);
 
-        for (int i = 0; i < 3; i++) {
-            for (int j = 0; j < 3; j++) {
-                shared_ptr<Candidate> sendCandidate = shared_ptr<Candidate>(new Candidate(
-					PClient->PeerCandidate->Ip(), PClient->PeerCandidate->Port() + i));
-                int res = PClient->mtransport->SendTo(sendCandidate,
-                        (uint8_t *)&msg, sizeof(Message));
-                if (0 != res)
-                    LOGE("Cannot send p2p connect to remote %s: %d at times %d",
-                            sendCandidate->ToString().c_str(), res, i);
-                else
-                    LOGI("Receiving REPLY_CONNECT from P2P server, sending "
-                            " DO_P2P_CONNECT request to peer: %s at times %d",
-                            sendCandidate->ToString().c_str(), i);
+        if (CXM_P2P_PEER_ROLE_SLAVE == peerRole) {
+            // slave peer use short TTL udp packet to open the port
+            int ttl = 2;
+            int error = setsockopt(PClient->mtransport->GetSocket(),
+                    IPPROTO_IP, IP_TTL, &ttl, sizeof(int));
+            LOGD("Set socket ttl to %d with error %d", ttl, error);
+
+            for (int i = -10; i <= 10; i++) {
+                for (int j = 0; j < 2; j++) {
+                    shared_ptr<Candidate> sendCandidate = shared_ptr<Candidate>(
+                            new Candidate(PClient->PeerCandidate->Ip(),
+                                PClient->PeerCandidate->Port() + i));
+                    int res = PClient->mtransport->SendTo(sendCandidate,
+                            (uint8_t *)&msg, sizeof(Message));
+                    if (0 != res)
+                        LOGE("Cannot send p2p connect to remote %s: %d at times %d",
+                                sendCandidate->ToString().c_str(), res, j);
+                    else
+                        LOGI("Receiving REPLY_CONNECT from P2P server, sending "
+                                " DO_P2P_CONNECT request to peer: %s at times %d",
+                                sendCandidate->ToString().c_str(), j);
+                }
             }
+        } else {
+            // master peer connect directly
+            shared_ptr<Candidate> sendCandidate = shared_ptr<Candidate>(
+                    new Candidate(PClient->PeerCandidate->Ip(),
+                        PClient->PeerCandidate->Port()));
+            int res = PClient->mtransport->SendTo(sendCandidate,
+                    (uint8_t *)&msg, sizeof(Message));
+            if (0 != res)
+                LOGE("Cannot send p2p connect to remote %s: %d",
+                        sendCandidate->ToString().c_str(), res);
+            else
+                LOGI("Receiving REPLY_CONNECT from P2P server, sending "
+                        " DO_P2P_CONNECT request to peer: %s",
+                        sendCandidate->ToString().c_str());
         }
 
 		return 0;
@@ -119,6 +146,11 @@ int ServantClient::ClientStateConnecting::OnMessage(shared_ptr<ReceiveMessage> m
 				message->GetRemoteCandidate()->ToString().c_str());
 			PClient->PeerCandidate = message->GetRemoteCandidate();
 		}
+
+        int ttl = 64;
+        int error = setsockopt(PClient->mtransport->GetSocket(),
+                IPPROTO_IP, IP_TTL, &ttl, sizeof(int));
+        LOGD("Set socket ttl to %d with error %d", ttl, error);
 
 		// send p2p connect
 		Message msg;

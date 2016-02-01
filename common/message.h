@@ -36,6 +36,11 @@ typedef enum {
 } CXM_P2P_ROLE_T;
 
 typedef enum {
+    CXM_P2P_PEER_ROLE_MASTER,
+    CXM_P2P_PEER_ROLE_SLAVE
+} CXM_P2P_PEER_ROLE_T;
+
+typedef enum {
 	CXM_P2P_REPLY_RESULT_OK = 1,
 	CXM_P2P_REPLY_RESULT_UNKNOWN_PEER
 } CXM_P2P_REPLY_RESULT_T;
@@ -77,6 +82,7 @@ struct Message
 				struct {
 					uint32_t remoteIp;
 					uint16_t remotePort;
+                    uint16_t peerRole;
 					char remoteName[CLIENT_NAME_LENGTH + 1];
 				} replyConnect;
 			} uc;
