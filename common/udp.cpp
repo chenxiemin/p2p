@@ -185,6 +185,86 @@ getMessage( Socket fd, char* buf, int* len,
    return true;
 }
 
+void getMessageList(Socket *fd, int fdLen,
+	char* buf, int len, IMessageSink *sink)
+{
+	assert(fd != NULL && fdLen > 0);
+
+	struct sockaddr_in from;
+	int fromLen = sizeof(from);
+
+	// timeout
+	int count = fdLen / FD_SETSIZE + 1;
+
+	for (int i = 0; i < count; i++) {
+		fd_set fds;
+		FD_ZERO(&fds);
+		Socket maxfd = 0;
+
+		for (int j = 0; j < FD_SETSIZE; j++) {
+			int fdIndex = j + i * FD_SETSIZE;
+			if (fdIndex >= fdLen)
+				break;
+
+			FD_SET(fd[fdIndex], &fds);
+			if (fd[fdIndex] > maxfd)
+				maxfd = fd[fdIndex];
+		}
+
+		struct timeval tv;
+		tv.tv_sec = 0;
+		tv.tv_usec = SELECT_TIMEOUT_MILS * 1000;
+
+		int n = select(maxfd + 1, &fds, NULL, NULL, &tv);
+		if (n <= 0)
+			continue;
+
+		for (int j = 0; j < FD_SETSIZE; j++) {
+			int fdIndex = j + i * FD_SETSIZE;
+			if (fdIndex >= fdLen)
+				break;
+
+			if (0 == FD_ISSET(fd[fdIndex], &fds))
+				continue;
+
+			n = recvfrom(fd[fdIndex], buf, len, 0,
+				(struct sockaddr *)&from, (socklen_t*)&fromLen);
+
+			if (n == SOCKET_ERROR)
+			{
+				int err = getErrno();
+
+				switch (err)
+				{
+				case ENOTSOCK:
+					cerr << "Error fd not a socket at " << fd[fdIndex] << endl;
+					break;
+				case ECONNRESET:
+					cerr << "Error connection reset - host not reachable at " << fd[fdIndex] << endl;
+					break;
+
+				default:
+					cerr << "Socket Error= at" << fd[fdIndex] << err << endl;
+				}
+				continue;
+			}
+			if (n < 0)
+			{
+				clog << "socket closed? negative len at" << fd[fdIndex] << endl;
+				continue;
+			}
+			if (n == 0)
+			{
+				clog << "socket closed? zero len at " << fd[fdIndex] << endl;
+				continue;
+			}
+
+			if (NULL != sink)
+				sink->OnGetMessage(fd[fdIndex], buf, n,
+					ntohl(from.sin_addr.s_addr), ntohs(from.sin_port));
+		}
+	}
+}
 
 bool 
 sendMessage( Socket fd, char* buf, int l, 

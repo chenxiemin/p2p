@@ -71,9 +71,9 @@ class ServantServer : public IReveiverSinkU
 	private: std::map<std::string, std::shared_ptr<Candidate>> mclientList;
 	private: std::shared_ptr<TransceiverU> mtransceiver;
 
-	public: ServantServer(const char *ip = NULL, uint16_t port = SERVANT_SERVER_PORT);
+	public: ServantServer();
 	public: virtual ~ServantServer() { Stop(); }
-	public: int Start();
+	public: int Start(const char *ip = NULL, uint16_t port = SERVANT_SERVER_PORT);
 	public: void Stop();
 			
 	public: virtual void OnData(std::shared_ptr<ReceiveData> data);
@@ -270,6 +270,7 @@ class ServantClient : cxm::p2p::IReveiverSinkU, cxm::util::IEventSink
 	// to find the remote peer ip / port
 	private: std::shared_ptr<TransceiverU> mtransport;
 	private: std::shared_ptr<Candidate> mserverCandidate;
+	private: std::shared_ptr<Candidate> mserverSubCandidate;
 	private: std::string mname;
 	private: std::string mremotePeer;
 			 

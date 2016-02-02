@@ -12,6 +12,8 @@
 #include <WinSock2.h>
 #include <stdlib.h>
 #include <io.h>
+#include <winsock.h>
+#include <ws2ipdef.h>
 #endif
 
 #ifdef __linux__

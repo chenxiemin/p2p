@@ -5,6 +5,7 @@
 
 #include "servant.h"
 #include "log.h"
+#include "network.h"
 
 using namespace std;
 using namespace std::chrono;
@@ -102,7 +103,7 @@ int ServantClient::ClientStateConnecting::OnMessage(shared_ptr<ReceiveMessage> m
             // slave peer use short TTL udp packet to open the port
             int ttl = 2;
             int error = setsockopt(PClient->mtransport->GetSocket(),
-                    IPPROTO_IP, IP_TTL, &ttl, sizeof(int));
+                    IPPROTO_IP, IP_TTL, (const char *)&ttl, sizeof(int));
             LOGD("Set socket ttl to %d with error %d", ttl, error);
 
             for (int i = -10; i <= 10; i++) {
@@ -151,7 +152,7 @@ int ServantClient::ClientStateConnecting::OnMessage(shared_ptr<ReceiveMessage> m
 
         int ttl = 64;
         int error = setsockopt(PClient->mtransport->GetSocket(),
-                IPPROTO_IP, IP_TTL, &ttl, sizeof(int));
+                IPPROTO_IP, IP_TTL, (const char *)&ttl, sizeof(int));
         LOGD("Set socket ttl to %d with error %d", ttl, error);
 
 		// send p2p connect

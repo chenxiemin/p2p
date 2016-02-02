@@ -15,16 +15,28 @@ using namespace cxm::util;
 namespace cxm {
 namespace p2p {
 
-ServantServer::ServantServer(const char *ip, uint16_t port)
+ServantServer::ServantServer()
 {
 	mtransceiver = shared_ptr<TransceiverU>(new TransceiverU());
-	mtransceiver->SetLocalCandidate(shared_ptr<Candidate>(new Candidate(ip, port)));
 	mtransceiver->SetSink(this);
 }
 
-int ServantServer::Start()
+int ServantServer::Start(const char *ip, uint16_t port)
 {
-	int res = mtransceiver->Open();
+	int res = mtransceiver->AddLocalCandidate(
+		shared_ptr<Candidate>(new Candidate(ip, port)));
+	if (0 != res) {
+		LOGE("Cannot add server port %d: %d", port, res);
+		return res;
+	}
+	res = mtransceiver->AddLocalCandidate(
+		shared_ptr<Candidate>(new Candidate(ip, port + 1)));
+	if (0 != res) {
+		LOGE("Cannot add server port %d: %d", port + 1, res);
+		return res;
+	}
+
+	res = mtransceiver->Open();
 	if (0 == res)
 		LOGI("Server start to listen at: %s", mtransceiver->GetLocalCandidate()->ToString().c_str());
 	else
@@ -51,6 +63,13 @@ void ServantServer::OnData(shared_ptr<ReceiveData> data)
 	case CXM_P2P_MESSAGE_LOGIN:
 		OnLoginMessage(message);
 		break;
+	case CXM_P2P_MESSAGE_LOGIN_SUB: {
+		string clientName = message->GetMessage()->u.client.clientName;
+		shared_ptr<Candidate> clientCandidate = message->GetRemoteCandidate();
+		LOGD("Receive client %s login sub message from %s", clientName.c_str(),
+			clientCandidate->ToString().c_str());
+		break;
+	}
 	case CXM_P2P_MESSAGE_LOGOUT:
 		OnLogoutMessage(message);
 		break;
@@ -191,8 +210,8 @@ ServantClient::ServantClient(const char *ip, uint16_t port) :
 
 	// init transport
 	mserverCandidate = shared_ptr<Candidate>(new Candidate(ip, port));
+	mserverSubCandidate = shared_ptr<Candidate>(new Candidate(ip, port + 1));
 	mtransport = shared_ptr<TransceiverU>(new TransceiverU());
-	mtransport->SetLocalCandidate(shared_ptr<Candidate>(new Candidate((int)0, 0)));
 	mtransport->SetSink(this);
 
 	// LOGOUT is the beginning state

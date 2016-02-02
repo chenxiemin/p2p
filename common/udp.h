@@ -83,6 +83,16 @@ getMessage( Socket fd, char* buf, int* len,
             unsigned int* srcIp, unsigned short* srcPort,
             bool verbose);
 
+class IMessageSink
+{
+	public: virtual ~IMessageSink() { }
+
+	public: virtual void OnGetMessage(Socket fd, char *buf, int len,
+		unsigned int srcIp, unsigned short srcPort) = 0;
+};
+
+void getMessageList(Socket *fd, int fdLen,
+	char* buf, int len, IMessageSink *sink);
 
 /// send a UDP message 
 bool 

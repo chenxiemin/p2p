@@ -27,7 +27,15 @@ int ServantClient::ClientStateLogining::Login()
 #endif
 
 	// open transport
-	int res = PClient->mtransport->Open();
+
+	int res = PClient->mtransport->AddLocalCandidate(shared_ptr<Candidate>(new Candidate((int)0, 0)));
+	if (0 != res) {
+		LOGE("Cannot add candidate: %d", res);
+		PClient->SetStateInternal(SERVANT_CLIENT_LOGOUT);
+		return -1;
+	}
+
+	res = PClient->mtransport->Open();
 	if (0 != res) {
 		LOGE("Cannot open transport: %d", res);
 		PClient->SetStateInternal(SERVANT_CLIENT_LOGOUT);
@@ -72,6 +80,10 @@ void ServantClient::ClientStateLogining::OnTimer()
 	msg.u.client.uc.login.clientPrivatePort = 0;
 
 	PClient->mtransport->SendTo(PClient->mserverCandidate,
+		(uint8_t *)&msg, sizeof(Message));
+
+	msg.type = CXM_P2P_MESSAGE_LOGIN_SUB;
+	PClient->mtransport->SendTo(PClient->mserverSubCandidate,
 		(uint8_t *)&msg, sizeof(Message));
 
 	LOGI("Sending login request to %s...",
