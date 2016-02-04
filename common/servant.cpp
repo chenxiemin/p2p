@@ -434,7 +434,7 @@ void ServantClient::OnData(std::shared_ptr<ReceiveData> data)
 		LOGE("Invalid message size: %d %d", data->GetLength(), (int)sizeof(Message));
 		return;
 	}
-#if 1
+#if 0
 	LOGD("Client receive message type %d from %s at current status %d",
             message->GetMessage()->type,
 				data->GetRemoteCandidate()->ToString().c_str(),

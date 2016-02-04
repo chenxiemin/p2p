@@ -88,7 +88,7 @@ class IMessageSink
 	public: virtual ~IMessageSink() { }
 
 	public: virtual void OnGetMessage(Socket fd, char *buf, int len,
-		unsigned int srcIp, unsigned short srcPort) = 0;
+		unsigned int srcIp, unsigned short srcPort, unsigned short localPort) = 0;
 };
 
 void getMessageList(Socket *fd, int fdLen,

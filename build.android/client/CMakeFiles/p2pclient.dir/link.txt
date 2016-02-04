@@ -1,0 +1,1 @@
+arm-linux-androideabi-g++    -pie -fPIE -march=armv7-a -mfloat-abi=softfp -std=gnu++11 -D__STDC_CONSTANT_MACROS -pie -fPIE -march=armv7-a -mfloat-abi=softfp    CMakeFiles/p2pclient.dir/client.cpp.o  -o p2pclient -rdynamic ../util/libutil.a ../common/libcommon.a -llog ../util/libutil.a 

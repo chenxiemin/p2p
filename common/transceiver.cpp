@@ -42,14 +42,12 @@ void TransceiverU::Close()
 
 int TransceiverU::AddLocalCandidate(std::shared_ptr<Candidate> candidate)
 {
-	if (NULL != mthread.get()) {
-		LOGE("Already open");
-		return -1;
-	}
+	unique_lock<std::mutex> lock(mmutex);
 
 	Socket socket = OpenCandidate(candidate);
 	if (INVALID_SOCKET == socket) {
-		LOGE("Cannot open socket");
+		LOGE("Cannot open socket with candidate %s",
+                candidate->ToString().c_str());
 		return -1;
 	}
 
@@ -64,6 +62,40 @@ int TransceiverU::AddLocalCandidate(std::shared_ptr<Candidate> candidate)
 		mmasterCandidate = cs;
 	
 	return 0;
+}
+
+int TransceiverU::UpdateLocalCandidateByPort(uint16_t port)
+{
+    // LOGD("The candidate list size: %d", mcandidateList.size());
+	for (auto iter = mcandidateList.begin();
+		iter != mcandidateList.end(); iter++) {
+		if ((*iter)->MCandidate->Port() == port) {
+            // LOGD("Update candidate to%d", port);
+            mmasterCandidate = *iter;
+            return 0;
+        }
+    }
+
+    return -1;
+}
+
+void TransceiverU::CloseCandidateListWithoutMaster()
+{
+    if (NULL == mmasterCandidate.get())
+        return;
+
+    unique_lock<std::mutex> lock(mmutex);
+
+	for (auto iter = mcandidateList.begin();
+		iter != mcandidateList.end(); iter++) {
+		if ((*iter)->MCandidate->Port() !=
+                mmasterCandidate->MCandidate->Port()) {
+            closesocket((*iter)->MSocket);
+        }
+    }
+
+    mcandidateList.clear();
+    mcandidateList.push_back(mmasterCandidate);
 }
 
 Socket TransceiverU::OpenCandidate(std::shared_ptr<Candidate> candidate)
@@ -93,6 +125,7 @@ Socket TransceiverU::OpenCandidate(std::shared_ptr<Candidate> candidate)
 				}
 			}
 		}
+        // LOGD("Open socket fd %d at port %d", msocket, candidate->Port());
 	} while (0);
 
 	return msocket;
@@ -107,41 +140,55 @@ int TransceiverU::SendTo(std::shared_ptr<Candidate> remote, const uint8_t *buf, 
 		len, remote->Ip(), remote->Port(), false) ? 0 : 1;
 }
 
+int TransceiverU::SendWithAll(std::shared_ptr<Candidate> remote, const uint8_t *buf, int len)
+{
+    unique_lock<std::mutex> lock(mmutex);
+
+    
+    for (size_t i = 0; i < mcandidateList.size(); i++) {
+        bool res = sendMessage(mcandidateList[i]->MSocket,
+                (char *)buf, len, remote->Ip(), remote->Port(), false);
+        if (!res)
+            LOGE("Cannot send to %s from socket %d",
+                    remote->ToString().c_str(), mcandidateList[i]->MSocket);
+    }
+
+    return 1;
+}
+
 void TransceiverU::Run()
 {
-	assert(mcandidateList.size() > 0);
-	Socket *sock = new Socket[this->mcandidateList.size()];
-	for (size_t i = 0; i < mcandidateList.size(); i++)
-		sock[i] = mcandidateList[i]->MSocket;
+    // TODO update performance
+    while (misRun) {
+        unique_lock<std::mutex> lock(mmutex);
 
-	while (misRun) {
-		unsigned int srcIp = 0;
-		unsigned short srcPort = 0;
-		int recvLen = MAX_RECEIVE_BUFFER_SIZE;
+        Socket *sock = NULL;
+        assert(mcandidateList.size() > 0);
+        sock = new Socket[this->mcandidateList.size()];
+        for (size_t i = 0; i < mcandidateList.size(); i++)
+            sock[i] = mcandidateList[i]->MSocket;
 
-		getMessageList(sock, mcandidateList.size(),
-			(char *)mreceBuffer, MAX_RECEIVE_BUFFER_SIZE, this);
+        unsigned int srcIp = 0;
+        unsigned short srcPort = 0;
+        int recvLen = MAX_RECEIVE_BUFFER_SIZE;
 
-		/*
-		bool res = getMessage(msocket, (char *)mreceBuffer,
-			&recvLen, &srcIp, &srcPort, true);
-		if (!res || recvLen <= 0 || recvLen > MAX_RECEIVE_BUFFER_SIZE)
-			continue;
-		*/
+        getMessageList(sock, mcandidateList.size(),
+                (char *)mreceBuffer, MAX_RECEIVE_BUFFER_SIZE, this);
 
-	}
+        delete sock;
+    }
 
-	delete sock;
 }
 
 void TransceiverU::OnGetMessage(Socket fd, char *buf, int len,
-	unsigned int srcIp, unsigned short srcPort)
+	unsigned int srcIp, unsigned short srcPort, unsigned short localPort)
 {
 	if (NULL != mpsink) {
 		shared_ptr<ReceiveData> cloneData;
 		cloneData = shared_ptr<ReceiveData>(
 			new ReceiveData((uint8_t *)buf, len,
-			shared_ptr<Candidate>(new Candidate(srcIp, srcPort))));
+			shared_ptr<Candidate>(new Candidate(srcIp, srcPort)),
+			shared_ptr<Candidate>(new Candidate(0, localPort))));
 
 		mpsink->OnData(cloneData);
 	}

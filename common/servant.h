@@ -6,6 +6,7 @@
 #include <map>
 #include <mutex>
 #include <condition_variable>
+#include <vector>
 
 #include "candidate.h"
 #include "udp.h"
@@ -37,6 +38,11 @@ class ReceiveMessage : public cxm::util::IEventArgs
 	public: std::shared_ptr<Candidate> GetRemoteCandidate()
 	{
 		return mreceiveData->GetRemoteCandidate();
+	}
+
+	public: std::shared_ptr<Candidate> GetLocalCandidate()
+	{
+		return mreceiveData->GetLocalCandidate();
 	}
 
 	public: std::shared_ptr<ReceiveData> GetReceiveData() { return mreceiveData; }
@@ -125,7 +131,7 @@ class ServantClient : cxm::p2p::IReveiverSinkU, cxm::util::IEventSink
 
 	public: static const int SERVANT_CLIENT_SERVER_KEEP_ALIVE_DELTA_MILS = 1000 * 60;
 	public: static const int SERVANT_CLIENT_PEER_KEEP_ALIVE_DELTA_MILS = 500;
-	public: static const int SERVANT_CLIENT_PEER_KEEP_ALIVE_TIMEOUT = 1000 * 3;
+	public: static const int SERVANT_CLIENT_PEER_KEEP_ALIVE_TIMEOUT = 1000 * 30;
 
 	public: typedef enum {
 		SERVANT_CLIENT_LOGOUT,
@@ -221,6 +227,8 @@ class ServantClient : cxm::p2p::IReveiverSinkU, cxm::util::IEventSink
 		std::shared_ptr<cxm::util::Timer> mtimer;
 		std::mutex mmutex;
 
+        std::vector<std::shared_ptr<Candidate>> mcandidateGuessList;
+
 		ClientStateConnecting(ServantClient *client);
 
 		virtual ~ClientStateConnecting();
@@ -230,6 +238,9 @@ class ServantClient : cxm::p2p::IReveiverSinkU, cxm::util::IEventSink
 
 		virtual int OnMessage(std::shared_ptr<ReceiveMessage> message);
 		virtual void OnTimer();
+
+        private: void GenerateGuessList(std::shared_ptr<Candidate> candidate,
+                         int size, int minPort);
 	};
 	private: struct ClientStateConnected : public ClientState
 	{

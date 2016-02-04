@@ -34,6 +34,11 @@ int ServantClient::ClientStateConnected::SendTo(const uint8_t *buf, int len)
 	memcpy(Buffer, &msg, sizeof(Message));
 	memcpy(Buffer + sizeof(Message), buf, len);
 
+#if 0
+    LOGD("Send user data to remote peer %s via loca %s",
+            PClient->PeerCandidate->ToString().c_str(),
+            PClient->mtransport->GetLocalCandidate()->ToString().c_str());
+#endif
 	return PClient->mtransport->SendTo(PClient->PeerCandidate, Buffer, sizeof(Message)+len);
 }
 

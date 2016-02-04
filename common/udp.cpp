@@ -24,7 +24,7 @@
 
 using namespace std;
 
-#define SELECT_TIMEOUT_MILS 100
+#define SELECT_TIMEOUT_MILS 10
 
 Socket
 openPort( unsigned short port, unsigned int interfaceIp, bool verbose )
@@ -259,9 +259,16 @@ void getMessageList(Socket *fd, int fdLen,
 				continue;
 			}
 
+			struct sockaddr_in addr;
+			int len = sizeof(addr);
+            int port = 0;
+			if (0 == getsockname(fd[fdIndex], (struct sockaddr *)&addr,
+                        (socklen_t*)&len))
+                port = addr.sin_port;
+
 			if (NULL != sink)
 				sink->OnGetMessage(fd[fdIndex], buf, n,
-					ntohl(from.sin_addr.s_addr), ntohs(from.sin_port));
+					ntohl(from.sin_addr.s_addr), ntohs(from.sin_port), port);
 		}
 	}
 }

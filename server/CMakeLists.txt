@@ -34,7 +34,10 @@ if (CMAKE_COMPILER_IS_GNUCC)
     else ()
         set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -std=c++0x -D__STDC_CONSTANT_MACROS -D_GLIBCXX_USE_NANOSLEEP")
     endif ()
-	target_link_libraries(p2pserver pthread)
+
+    if (NOT CROSS_COMPILE_ANDROID)
+        target_link_libraries(p2pserver pthread)
+    endif()
 endif ()
 
 if (CROSS_COMPILE_HI)

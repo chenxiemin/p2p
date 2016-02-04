@@ -93,9 +93,12 @@ struct Message
 				uint16_t userDataLength;
 				struct {
 					char key[CLIENT_NAME_LENGTH + 1];
+                    uint16_t myPrivatePort;
 				} p2p;
 				struct {
 					char key[CLIENT_NAME_LENGTH + 1];
+                    uint16_t yourPublicPort;
+                    uint16_t yourPrivatePort;
 				} p2pReply;
 			} up;
 		} p2p;
