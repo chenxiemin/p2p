@@ -1,1 +1,0 @@
-arm-linux-androideabi-g++    -pie -fPIE -march=armv7-a -mfloat-abi=softfp -std=gnu++11 -D__STDC_CONSTANT_MACROS    CMakeFiles/p2pserver.dir/server.cpp.o  -o p2pserver -rdynamic ../util/libutil.a ../common/libcommon.a ../util/libutil.a 

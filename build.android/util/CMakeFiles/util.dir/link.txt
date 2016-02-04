@@ -1,2 +1,0 @@
-/usr/bin/ar cr libutil.a  CMakeFiles/util.dir/dummy.cpp.o
-/usr/bin/ranlib libutil.a

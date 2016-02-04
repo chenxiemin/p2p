@@ -1,4 +1,0 @@
-/nfs/p2p/build.android/common/CMakeFiles/common.dir
-/nfs/p2p/build.android/client/CMakeFiles/p2pclient.dir
-/nfs/p2p/build.android/server/CMakeFiles/p2pserver.dir
-/nfs/p2p/build.android/util/CMakeFiles/util.dir
