@@ -353,7 +353,7 @@ void ServantClient::ClientStateConnecting::GenerateGuessList(
             iter != mcandidateGuessList.end(); iter++)
         ss << (*iter)->Port() << " ";
 
-    LOGI("%s", ss.str().c_str());
+    // LOGI("%s", ss.str().c_str());
 }
 
 }
