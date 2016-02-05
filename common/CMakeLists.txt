@@ -13,6 +13,13 @@ if (CMAKE_COMPILER_IS_GNUCC)
     endif ()
 endif ()
 
+if (CROSS_COMPILE_ANDROID)
+    set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -MMD -MP -MF -DANDROID")
+    set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -fpic -ffunction-sections -funwind-tables -fstack-protector -no-canonical-prefixes -march=armv7-a -mfpu=vfpv3-d16 -mfloat-abi=softfp -mthumb")
+    set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -fomit-frame-pointer -fno-strict-aliasing -finline-limit=64")
+    set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -marm -fno-omit-frame-pointer")
+endif ()
+
 # source file
 FILE (GLOB SRC *.cpp *h)
 add_library (common STATIC ${SRC})
