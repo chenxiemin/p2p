@@ -14,35 +14,35 @@ void ServantClient::ClientStateLogin::OnStateForeground()
 
 int ServantClient::ClientStateLogin::OnMessage(std::shared_ptr<ReceiveMessage> message)
 {
-	const Message *msg = message->GetMessage();
-	assert(NULL != msg);
+    const Message *msg = message->GetMessage();
+    assert(NULL != msg);
 
-	if (CXM_P2P_MESSAGE_REPLY_CONNECT != msg->type) {
-		LOGD("Unwant message on login state: %d", msg->type);
-		return -1;
-	}
-	shared_ptr<Candidate> peerCandidate = shared_ptr<Candidate>(
-		new Candidate(msg->u.client.uc.replyConnect.remoteIp, msg->u.client.uc.replyConnect.remotePort));
-	LOGI("Receive REPLY_CONNECT on state login: %s %s",
-		msg->u.client.uc.replyConnect.remoteName, peerCandidate->ToString().c_str());
-	
-	// TODO authentication
+    if (CXM_P2P_MESSAGE_REPLY_CONNECT != msg->type) {
+        LOGD("Unwant message on login state: %d", msg->type);
+        return -1;
+    }
 
-	// save remote name
-	PClient->SetRemote(msg->u.client.uc.replyConnect.remoteName);
+    // TODO authentication
 
-	// change to connecting state
-	shared_ptr<ServantClient::ClientState> oldState = PClient->SetStateInternal(SERVANT_CLIENT_CONNECTING);
-	shared_ptr<ServantClient::ClientState> newState = PClient->GetStateInternal();
-	shared_ptr<ServantClient::ClientStateConnecting> connectingState =
-		dynamic_pointer_cast<ServantClient::ClientStateConnecting>(newState);
-	assert(NULL != connectingState.get());
+    // save remote name
+    PClient->SetRemote(msg->u.client.uc.replyConnect.remoteName);
 
-	// trigger connecting state to do p2p connect with remote peer
-	PClient->PeerCandidate = peerCandidate;
-	connectingState->OnMessage(message);
+    // should be connected by somebody, the slave role
+    PClient->mpeerRole = (CXM_P2P_PEER_ROLE_T)
+        message->GetMessage()->u.client.uc.replyConnect.peerRole;
+    PClient->PeerCandidate = shared_ptr<Candidate>(new Candidate(
+                message->GetMessage()->u.client.uc.replyConnect.remoteIp,
+                message->GetMessage()->u.client.uc.replyConnect.remotePort));
 
-	return 0;
+    LOGI("Receive REPLY_CONNECT request on state login: peer name %s candidate %s role %d",
+            msg->u.client.uc.replyConnect.remoteName,
+            PClient->PeerCandidate->ToString().c_str(),
+            PClient->mpeerRole);
+
+    // trigger connecting state to do p2p connect with remote peer
+    this->Connect();
+
+    return 0;
 }
 
 int ServantClient::ClientStateLogin::Connect()

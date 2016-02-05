@@ -106,18 +106,24 @@ void TransceiverU::CloseCandidateListWithoutMaster()
     if (NULL == mmasterCandidate.get())
         return;
 
-    unique_lock<std::mutex> lock(mmutex);
+    misAdd = true;
 
-	for (auto iter = mcandidateList.begin();
-		iter != mcandidateList.end(); iter++) {
-		if ((*iter)->MCandidate->Port() !=
-                mmasterCandidate->MCandidate->Port()) {
-            closesocket((*iter)->MSocket);
+    {
+        unique_lock<std::mutex> lock(mmutex);
+
+        for (auto iter = mcandidateList.begin();
+                iter != mcandidateList.end(); iter++) {
+            if ((*iter)->MCandidate->Port() !=
+                    mmasterCandidate->MCandidate->Port()) {
+                closesocket((*iter)->MSocket);
+            }
         }
+
+        mcandidateList.clear();
+        mcandidateList.push_back(mmasterCandidate);
     }
 
-    mcandidateList.clear();
-    mcandidateList.push_back(mmasterCandidate);
+    misAdd = false;
 }
 
 Socket TransceiverU::OpenCandidate(std::shared_ptr<Candidate> candidate)
@@ -164,16 +170,19 @@ int TransceiverU::SendTo(std::shared_ptr<Candidate> remote, const uint8_t *buf, 
 
 int TransceiverU::SendWithAll(std::shared_ptr<Candidate> remote, const uint8_t *buf, int len)
 {
-    unique_lock<std::mutex> lock(mmutex);
+    misAdd = true;
+    {
+        unique_lock<std::mutex> lock(mmutex);
 
-    
-    for (size_t i = 0; i < mcandidateList.size(); i++) {
-        bool res = sendMessage(mcandidateList[i]->MSocket,
-                (char *)buf, len, remote->Ip(), remote->Port(), false);
-        if (!res)
-            LOGE("Cannot send to %s from socket %d",
-                    remote->ToString().c_str(), mcandidateList[i]->MSocket);
+        for (size_t i = 0; i < mcandidateList.size(); i++) {
+            bool res = sendMessage(mcandidateList[i]->MSocket,
+                    (char *)buf, len, remote->Ip(), remote->Port(), false);
+            if (!res)
+                LOGE("Cannot send to %s from socket %d",
+                        remote->ToString().c_str(), mcandidateList[i]->MSocket);
+        }
     }
+    misAdd = false;
 
     return 1;
 }

@@ -30,6 +30,7 @@ typedef enum {
 	CXM_P2P_MESSAGE_COUNT // remain last
 } CXM_P2P_MESSAGE_TYPE;
 
+// TODO merge P2P_ROLE_T and PEER_ROLE_T
 typedef enum {
 	CXM_P2P_ROLE_SERVER, // message send by p2p server
 	CXM_P2P_ROLE_CLIENT, // message send from peer to p2p server

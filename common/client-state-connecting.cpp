@@ -25,40 +25,79 @@ namespace p2p {
 
 ServantClient::ClientStateConnecting::ClientStateConnecting(ServantClient *client) : ClientState(SERVANT_CLIENT_CONNECTING, client)
 {
-    // first start right now
-    this->OnTimer();
-	mtimer = shared_ptr<Timer>(new Timer(this, milliseconds(CONNECTING_RETRY_MILS)));
-
     mlastReplyRequestTime = system_clock::from_time_t(0);
     mlastReplyConnectTime = system_clock::from_time_t(0);
+    mstartTime = system_clock::now();
+
+    // first start right now
+    // this->OnTimer();
+	mtimer = shared_ptr<Timer>(new Timer(this, milliseconds(CONNECTING_RETRY_MILS)));
 }
 
 ServantClient::ClientStateConnecting::~ClientStateConnecting()
 {
-    this->Disconnect();
+    if (PClient->GetState() != SERVANT_CLIENT_CONNECTED) {
+        LOGD("Destroy ClientStateConnecting to disconnect at state: %d",
+                PClient->GetState());
+        this->Disconnect();
+    }
 }
 
 int ServantClient::ClientStateConnecting::Connect()
 {
-	this->OnTimer();
-	// start timer to connect repeativity
-	mtimer->Start(true);
+    LOGD("Connecting state start connect with the role: %d", PClient->mpeerRole);
+    if (CXM_P2P_PEER_ROLE_MASTER == PClient->mpeerRole) {
+        // master start a time to connect initative
+        this->OnTimer();
+        mtimer->Start(true);
+    } else {
+        // slave do not connect initiative
+        // at this moment, the login state has already saved remote peer info
+        this->OnReplyConnect();
+    }
 
 	return 0;
 }
 
 void ServantClient::ClientStateConnecting::Disconnect()
 {
-	unique_lock<mutex> lock(mmutex);
+    if (NULL == mtimer.get())
+        return;
 
-    if (NULL != mtimer) {
-        mtimer->Stop();
-        mtimer.reset();
-    }
+    LOGD("Before disconnect");
+    unique_lock<mutex> lock(mmutex);
+    LOGD("after disconnect");
+
+    LOGD("Before stop timer");
+    mtimer->Stop();
+    mtimer.reset();
+    LOGD("After stop timer");
+
+#if 1
+    shared_ptr<ServantClient::ClientState> oldState =
+        PClient->SetStateInternal(SERVANT_CLIENT_LOGIN);
+#endif
 }
 
 void ServantClient::ClientStateConnecting::OnTimer()
 {
+    // check timeout
+    milliseconds delta = duration_cast<milliseconds>(
+            system_clock::now() - mstartTime);
+    LOGD("The connnect time delta %d", (int)delta.count());
+    if (delta.count() > PClient->mconnectingTimeoutMils) {
+        LOGE("Connecting timeout at mils %d, give up without lock", (int)delta.count());
+        PClient->Disconnect();
+        LOGD("Connecting timeout disconnect complete");
+        return;
+    }
+
+    // do not send request to p2p server for the slave role
+    if (PClient->mpeerRole == CXM_P2P_PEER_ROLE_SLAVE) {
+        LOGD("Do not send connect request because of the slave role");
+        return;
+    }
+
 	unique_lock<mutex> lock(mmutex);
 
 	if (NULL == PClient->PeerCandidate.get()) {
@@ -93,7 +132,6 @@ void ServantClient::ClientStateConnecting::OnTimer()
 
 int ServantClient::ClientStateConnecting::OnMessage(shared_ptr<ReceiveMessage> message)
 {
-
 	switch (message->GetMessage()->type) {
 	case CXM_P2P_MESSAGE_REPLY_REQUEST: {
 		if (CXM_P2P_REPLY_RESULT_OK !=
@@ -129,77 +167,16 @@ int ServantClient::ClientStateConnecting::OnMessage(shared_ptr<ReceiveMessage> m
         }
         mlastReplyConnectTime = system_clock::now();
 
-        CXM_P2P_PEER_ROLE_T peerRole = (CXM_P2P_PEER_ROLE_T)
+        PClient->mpeerRole = (CXM_P2P_PEER_ROLE_T)
             message->GetMessage()->u.client.uc.replyConnect.peerRole;
-        LOGD("Receive REPLY_CONNECT with role: %d", peerRole);
+        PClient->PeerCandidate = shared_ptr<Candidate>(new Candidate(
+                    message->GetMessage()->u.client.uc.replyConnect.remoteIp,
+                    message->GetMessage()->u.client.uc.replyConnect.remotePort));
 
-		// after server send this message, connect to the real peer
-		// send p2p connect to remote client
-		Message msg;
-		memset(&msg, 0, sizeof(msg));
-		msg.type = CXM_P2P_MESSAGE_DO_P2P_CONNECT;
-		strncpy(msg.u.p2p.up.p2p.key, SERVANT_P2P_MESSAGE, CLIENT_NAME_LENGTH);
+        LOGD("Receive REPLY_CONNECT with role %d at peer candidate %s",
+                PClient->mpeerRole, PClient->PeerCandidate->ToString().c_str());
 
-        if (CXM_P2P_PEER_ROLE_SLAVE == peerRole) {
-            // slave peer use short TTL udp packet to open the port
-            int ttl = 2;
-            int error = setsockopt(PClient->mtransport->GetSocket(),
-                    IPPROTO_IP, IP_TTL, (const char *)&ttl, sizeof(int));
-            LOGD("Set socket ttl to %d with error %d", ttl, error);
-
-            GenerateGuessList(shared_ptr<Candidate>(
-                        new Candidate(PClient->PeerCandidate->Ip(),
-                            PClient->PeerCandidate->Port())), 2020, 500);
-
-            for (auto iter = mcandidateGuessList.begin();
-                    iter != mcandidateGuessList.end(); iter++) {
-                for (int j = 0; j < 2; j++) {
-                    shared_ptr<Candidate> sendCandidate = *iter;
-                    int res = PClient->mtransport->SendTo(sendCandidate,
-                            (uint8_t *)&msg, sizeof(Message));
-                    if (0 != res)
-                        LOGE("Cannot send p2p connect to remote %s: %d at times %d",
-                                sendCandidate->ToString().c_str(), res, j);
-                }
-            }
-        } else {
-            PClient->mtransport->CloseCandidateListWithoutMaster();
-            GenerateGuessList(shared_ptr<Candidate>(new Candidate(0,
-                            PClient->PeerCandidate->Port())), 100, 1000);
-
-            for (auto iter = mcandidateGuessList.begin();
-                    iter != mcandidateGuessList.end(); iter++) {
-                int res = PClient->mtransport->AddLocalCandidate((*iter));
-                if (0 != res)
-                    LOGE("Cannot add candidate: %s",
-                            (*iter)->ToString().c_str());
-            }
-
-            LOGI("Open multi candidates to punch remote peer: %s",
-                    PClient->PeerCandidate->ToString().c_str());
-
-            // save the origin master port for restore
-            int masterPort = PClient->mtransport->GetLocalCandidate()->Port();
-
-            for (int j = 0; j < 2; j++) {
-                // master peer connect directly
-                for (auto iter = PClient->mtransport->GetCandiateList().begin();
-                        iter != PClient->mtransport->GetCandiateList().end();
-                        iter++) {
-                    PClient->mtransport->UpdateLocalCandidateByPort(
-                            (*iter)->MCandidate->Port());
-
-                    msg.u.p2p.up.p2p.myPrivatePort = (*iter)->MCandidate->Port();
-                    int res = PClient->mtransport->SendTo(PClient->PeerCandidate,
-                            (uint8_t *)&msg, sizeof(Message));
-                    if (0 != res)
-                        LOGE("Cannot send p2p connect to remote %s: %d at times %d",
-                                (*iter)->MCandidate->ToString().c_str(), res, j);
-                }
-            }
-
-            PClient->mtransport->UpdateLocalCandidateByPort(masterPort);
-        }
+        this->OnReplyConnect();
 
 		return 0;
 	} case CXM_P2P_MESSAGE_DO_P2P_CONNECT: {
@@ -210,14 +187,6 @@ int ServantClient::ClientStateConnecting::OnMessage(shared_ptr<ReceiveMessage> m
 				PClient->PeerCandidate->ToString().c_str(),
 				message->GetRemoteCandidate()->ToString().c_str());
 			PClient->PeerCandidate = message->GetRemoteCandidate();
-#if 0
-            int res = PClient->mtransport->UpdateLocalCandidate(
-                    message->GetLocalCandidate());
-            if (0 != res) {
-                LOGE("Cannot update transport candidate %s: %d",
-                        message->GetLocalCandidate()->ToString().c_str(), res);
-            }
-#endif
 		}
 
         int ttl = 64;
@@ -322,6 +291,82 @@ void ServantClient::ClientStateConnecting::Logout()
 	PClient->meventThread->PutEvent(SERVANT_CLIENT_EVENT_LOGOUT);
 }
 
+void ServantClient::ClientStateConnecting::OnReplyConnect()
+{
+    assert(NULL != PClient->PeerCandidate.get() &&
+            0 != PClient->PeerCandidate->Ip() &&
+            0 != PClient->PeerCandidate->Port());
+
+    // after server send this message, connect to the real peer
+    // send p2p connect to remote client
+    Message msg;
+    memset(&msg, 0, sizeof(msg));
+    msg.type = CXM_P2P_MESSAGE_DO_P2P_CONNECT;
+    strncpy(msg.u.p2p.up.p2p.key, SERVANT_P2P_MESSAGE, CLIENT_NAME_LENGTH);
+
+    if (CXM_P2P_PEER_ROLE_SLAVE == PClient->mpeerRole) {
+        // slave peer use short TTL udp packet to open the port
+        int ttl = 2;
+        int error = setsockopt(PClient->mtransport->GetSocket(),
+                IPPROTO_IP, IP_TTL, (const char *)&ttl, sizeof(int));
+        LOGD("Set socket ttl to %d with error %d", ttl, error);
+
+        GenerateGuessList(shared_ptr<Candidate>(
+                    new Candidate(PClient->PeerCandidate->Ip(),
+                        PClient->PeerCandidate->Port())), 520, 500);
+
+        for (auto iter = mcandidateGuessList.begin();
+                iter != mcandidateGuessList.end(); iter++) {
+            for (int j = 0; j < 2; j++) {
+                shared_ptr<Candidate> sendCandidate = *iter;
+                int res = PClient->mtransport->SendTo(sendCandidate,
+                        (uint8_t *)&msg, sizeof(Message));
+                if (0 != res)
+                    LOGE("Cannot send p2p connect to remote %s: %d at times %d",
+                            sendCandidate->ToString().c_str(), res, j);
+            }
+        }
+    } else {
+        PClient->mtransport->CloseCandidateListWithoutMaster();
+        GenerateGuessList(shared_ptr<Candidate>(new Candidate(0,
+                        PClient->PeerCandidate->Port())), 220, 1000);
+
+        for (auto iter = mcandidateGuessList.begin();
+                iter != mcandidateGuessList.end(); iter++) {
+            int res = PClient->mtransport->AddLocalCandidate((*iter));
+            if (0 != res)
+                LOGE("Cannot add candidate: %s",
+                        (*iter)->ToString().c_str());
+        }
+
+        LOGI("Open multi candidates to punch remote peer %s, asleep to punch",
+                PClient->PeerCandidate->ToString().c_str());
+        Thread::Sleep(500);
+
+        // save the origin master port for restore
+        int masterPort = PClient->mtransport->GetLocalCandidate()->Port();
+
+        for (int j = 0; j < 2; j++) {
+            // master peer connect directly
+            for (auto iter = PClient->mtransport->GetCandiateList().begin();
+                    iter != PClient->mtransport->GetCandiateList().end();
+                    iter++) {
+                PClient->mtransport->UpdateLocalCandidateByPort(
+                        (*iter)->MCandidate->Port());
+
+                msg.u.p2p.up.p2p.myPrivatePort = (*iter)->MCandidate->Port();
+                int res = PClient->mtransport->SendTo(PClient->PeerCandidate,
+                        (uint8_t *)&msg, sizeof(Message));
+                if (0 != res)
+                    LOGE("Cannot send p2p connect to remote %s: %d at times %d",
+                            (*iter)->MCandidate->ToString().c_str(), res, j);
+            }
+        }
+
+        PClient->mtransport->UpdateLocalCandidateByPort(masterPort);
+    }
+}
+
 void ServantClient::ClientStateConnecting::GenerateGuessList(
         shared_ptr<Candidate> candidate, int generateSize, int minPort)
 {
@@ -363,7 +408,7 @@ void ServantClient::ClientStateConnecting::GenerateGuessList(
             iter != mcandidateGuessList.end(); iter++)
         ss << (*iter)->Port() << " ";
 
-    // LOGI("%s", ss.str().c_str());
+    LOGD("%s", ss.str().c_str());
 }
 
 }

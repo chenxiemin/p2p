@@ -1,9 +1,8 @@
-#! /bin/sh
+#!/bin/sh
 
 rm -rf ./build.android
-mkdir ./build.android
+mkdir build.android
+cd build.android
 
-cd ./build.android
-cmake -G "Unix Makefiles" -DCROSS_COMPILE_ANDROID=1 ../
-make -j4
+cmake -D CMAKE_TOOLCHAIN_FILE=../android.cmake -DCROSS_COMPILE_ANDROID=1 ../
 

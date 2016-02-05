@@ -201,7 +201,8 @@ void ServantServer::OnConnectMessage(std::shared_ptr<ReceiveMessage> message)
 
 ServantClient::ServantClient(const char *ip, uint16_t port) :
 	mnatType(STUN_NAT_TYPE_UNKNOWN), mpsink(NULL), mpDataSink(NULL),
-	misServerKeepAlive(false), misPeerKeepAlive(false)
+	misServerKeepAlive(false), misPeerKeepAlive(false),
+    mconnectingTimeoutMils(30 * 1000), mpeerRole(CXM_P2P_PEER_ROLE_SLAVE)
 {
 	// start event thread
 	meventThread = shared_ptr<UnifyEventThread>(new UnifyEventThread("ServantClient"));
@@ -277,11 +278,16 @@ int ServantClient::Connect()
 		LOGE("Invalid argument: %s", mremotePeer.c_str());
 		return -1;
 	}
+    LOGD("Connect to peer %s at current state %d",
+            mremotePeer.c_str(), this->GetState());
 
 	if (SERVANT_CLIENT_LOGIN != this->GetState()) {
 		LOGE("Invalid state during connect: %d", this->GetState());
 		return -1;
 	}
+
+    // the caller should be the master role
+    mpeerRole = CXM_P2P_PEER_ROLE_MASTER;
 
 	// put login event
 	this->meventThread->PutEvent(SERVANT_CLIENT_EVENT_CONNECT);
@@ -293,6 +299,7 @@ void ServantClient::Disconnect()
 	assert(NULL != mstate.get());
 	assert(NULL != meventThread.get());
 
+    LOGD("ServantClient Disconnect at current state: %d", this->GetState());
 	if (SERVANT_CLIENT_CONNECTED != this->GetState() && 
             SERVANT_CLIENT_CONNECTING != this->GetState()) {
 		LOGE("Invalid state during connect: %d", this->GetState());
@@ -337,7 +344,7 @@ void ServantClient::StopPeerKeepAlive()
 
 void ServantClient::OnEvent(int type, shared_ptr<IEventArgs> args)
 {
-#if 0
+#if 1
 	LOGD("Client OnEvent: %d", type);
 #endif
 	switch (type) {
@@ -426,6 +433,9 @@ void ServantClient::OnEvent(int type, shared_ptr<IEventArgs> args)
 	} default:
 		break;
 	}
+#if 0
+	LOGD("Client OnEvent complete at type: %d", type);
+#endif
 }
 
 void ServantClient::OnData(std::shared_ptr<ReceiveData> data)
@@ -436,7 +446,7 @@ void ServantClient::OnData(std::shared_ptr<ReceiveData> data)
 		LOGE("Invalid message size: %d %d", data->GetLength(), (int)sizeof(Message));
 		return;
 	}
-#if 0
+#if 1
 	LOGD("Client receive message type %d from %s at current status %d",
             message->GetMessage()->type,
 				data->GetRemoteCandidate()->ToString().c_str(),

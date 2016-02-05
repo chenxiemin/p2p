@@ -229,6 +229,7 @@ class ServantClient : cxm::p2p::IReveiverSinkU, cxm::util::IEventSink
 		std::mutex mmutex;
         std::chrono::system_clock::time_point mlastReplyRequestTime;
         std::chrono::system_clock::time_point mlastReplyConnectTime;
+        std::chrono::system_clock::time_point mstartTime;
 
         std::vector<std::shared_ptr<Candidate>> mcandidateGuessList;
 
@@ -245,6 +246,7 @@ class ServantClient : cxm::p2p::IReveiverSinkU, cxm::util::IEventSink
 
         private: void GenerateGuessList(std::shared_ptr<Candidate> candidate,
                          int size, int minPort);
+        private: void OnReplyConnect();
 	};
 	private: struct ClientStateConnected : public ClientState
 	{
@@ -308,6 +310,9 @@ class ServantClient : cxm::p2p::IReveiverSinkU, cxm::util::IEventSink
 	private: bool misServerKeepAlive;
 	private: bool misPeerKeepAlive;
 	private: std::chrono::system_clock::time_point mlastPeerKeepAliveTime;
+
+    private: int mconnectingTimeoutMils;
+    private: CXM_P2P_PEER_ROLE_T mpeerRole;
 
 	public: ServantClient(const char *serverIp,
 		uint16_t port = ServantServer::SERVANT_SERVER_PORT);

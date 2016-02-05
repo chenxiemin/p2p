@@ -18,6 +18,7 @@ if (CROSS_COMPILE_ANDROID)
     set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -fpic -ffunction-sections -funwind-tables -fstack-protector -no-canonical-prefixes -march=armv7-a -mfpu=vfpv3-d16 -mfloat-abi=softfp -mthumb")
     set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -fomit-frame-pointer -fno-strict-aliasing -finline-limit=64")
     set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -marm -fno-omit-frame-pointer")
+    set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -DENABLE_ANDROID_LOG")
 endif ()
 
 # source file

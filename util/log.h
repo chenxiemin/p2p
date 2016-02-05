@@ -42,10 +42,12 @@
 #define __MY_FILE__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #endif
 
+#define LOG_MAX_BUFFER_SIZE 4096
+
 #ifdef ENABLE_ANDROID_LOG
 #include <android/log.h>
 #define LOG(level, x...) do { if (LOG_LEVEL_V == level) break; \
-	char buf[512]; \
+	char buf[LOG_MAX_BUFFER_SIZE]; \
 	sprintf(buf, x); \
 	__android_log_print(ANDROID_LOG_ERROR, "MY_LOG_TAG", \
 	"%s | %s:%i", buf, __MY_FILE__, __LINE__); \
@@ -54,8 +56,8 @@
 #elif defined(_WIN32)
 #include <iostream>
 #define LOG(level, ...) do { if (LOG_LEVEL_V == level) break; \
-	char buf[1024]; \
-	sprintf_s(buf, 1024, __VA_ARGS__); \
+	char buf[LOG_MAX_BUFFER_SIZE]; \
+	sprintf_s(buf, LOG_MAX_BUFFER_SIZE, __VA_ARGS__); \
 	std::cout << buf << std::endl; \
 	std::cout.flush(); \
 } while (0)
