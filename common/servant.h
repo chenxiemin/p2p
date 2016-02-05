@@ -7,6 +7,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <vector>
+#include <chrono>
 
 #include "candidate.h"
 #include "udp.h"
@@ -226,6 +227,8 @@ class ServantClient : cxm::p2p::IReveiverSinkU, cxm::util::IEventSink
 		// timer for triggering connecting request repeativity
 		std::shared_ptr<cxm::util::Timer> mtimer;
 		std::mutex mmutex;
+        std::chrono::system_clock::time_point mlastReplyRequestTime;
+        std::chrono::system_clock::time_point mlastReplyConnectTime;
 
         std::vector<std::shared_ptr<Candidate>> mcandidateGuessList;
 

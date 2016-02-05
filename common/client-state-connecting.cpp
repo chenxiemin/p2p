@@ -28,6 +28,9 @@ ServantClient::ClientStateConnecting::ClientStateConnecting(ServantClient *clien
     // first start right now
     this->OnTimer();
 	mtimer = shared_ptr<Timer>(new Timer(this, milliseconds(CONNECTING_RETRY_MILS)));
+
+    mlastReplyRequestTime = system_clock::from_time_t(0);
+    mlastReplyConnectTime = system_clock::from_time_t(0);
 }
 
 ServantClient::ClientStateConnecting::~ClientStateConnecting()
@@ -82,8 +85,6 @@ void ServantClient::ClientStateConnecting::OnTimer()
 
 int ServantClient::ClientStateConnecting::OnMessage(shared_ptr<ReceiveMessage> message)
 {
-	static system_clock::time_point lastReplyRequestTime = system_clock::from_time_t(0);
-	static system_clock::time_point lastReplyConnectTime = system_clock::from_time_t(0);
 
 	switch (message->GetMessage()->type) {
 	case CXM_P2P_MESSAGE_REPLY_REQUEST: {
@@ -94,12 +95,12 @@ int ServantClient::ClientStateConnecting::OnMessage(shared_ptr<ReceiveMessage> m
 			return 0;
 		}
 		milliseconds delta = duration_cast<milliseconds>(
-                system_clock::now() - lastReplyRequestTime);
+                system_clock::now() - mlastReplyRequestTime);
         if (delta.count() < CONNECTING_RETRY_MILS) {
-            LOGW("Ignore mulit REPLY_REQUEST at delta mils: %d", delta.count());
+            LOGW("Ignore mulit REPLY_REQUEST at delta mils: %d", (int)delta.count());
             return -1;
         }
-        lastReplyRequestTime = system_clock::now();
+        mlastReplyRequestTime = system_clock::now();
 
 		PClient->PeerCandidate = shared_ptr<Candidate>(new Candidate(
 			message->GetMessage()->u.client.uc.replyRequest.remoteIp,
@@ -113,12 +114,12 @@ int ServantClient::ClientStateConnecting::OnMessage(shared_ptr<ReceiveMessage> m
 		return 0;
 	} case CXM_P2P_MESSAGE_REPLY_CONNECT: {
 		milliseconds delta = duration_cast<milliseconds>(
-                system_clock::now() - lastReplyConnectTime);
+                system_clock::now() - mlastReplyConnectTime);
         if (delta.count() < CONNECTING_RETRY_MILS) {
-            LOGW("Ignore mulit REPLY_REQUEST at delta mils: %d", delta.count());
+            LOGW("Ignore mulit REPLY_REQUEST at delta mils: %d", (int)delta.count());
             return -1;
         }
-        lastReplyConnectTime = system_clock::now();
+        mlastReplyConnectTime = system_clock::now();
 
         CXM_P2P_PEER_ROLE_T peerRole = (CXM_P2P_PEER_ROLE_T)
             message->GetMessage()->u.client.uc.replyConnect.peerRole;
@@ -140,7 +141,7 @@ int ServantClient::ClientStateConnecting::OnMessage(shared_ptr<ReceiveMessage> m
 
             GenerateGuessList(shared_ptr<Candidate>(
                         new Candidate(PClient->PeerCandidate->Ip(),
-                            PClient->PeerCandidate->Port())), 1020, 500);
+                            PClient->PeerCandidate->Port())), 2020, 500);
 
             for (auto iter = mcandidateGuessList.begin();
                     iter != mcandidateGuessList.end(); iter++) {
