@@ -7,6 +7,17 @@ using namespace cxm::util;
 namespace cxm {
 namespace p2p {
 
+TransceiverU::TransceiverU() : misRun(false), mpsink(NULL), misAdd(false)
+{
+    LOGD("Create TransceiverU at %p", this);
+}
+
+TransceiverU::~TransceiverU()
+{
+    Close();
+    LOGD("Destroy transceiver at %p", this);
+}
+
 int TransceiverU::Open()
 {
 	if (NULL != mthread.get())
@@ -18,8 +29,8 @@ int TransceiverU::Open()
 	mthread = shared_ptr<Thread>(new Thread(this, "Network"));
 	mthread->Start();
 
-	LOGD("Open local candidate: %s",
-		mmasterCandidate->MCandidate->ToString().c_str());
+	LOGD("Open local candidate: %s at transceiver: %p",
+		mmasterCandidate->MCandidate->ToString().c_str(), this);
 	return 0;
 }
 
@@ -27,6 +38,8 @@ void TransceiverU::Close()
 {
 	if (NULL == mthread.get())
 		return;
+
+    LOGD("Close Transceiver at %p", this);
 
 	this->misRun = false;
 	this->mthread->Join();
@@ -42,26 +55,35 @@ void TransceiverU::Close()
 
 int TransceiverU::AddLocalCandidate(std::shared_ptr<Candidate> candidate)
 {
-	unique_lock<std::mutex> lock(mmutex);
+    misAdd = true;
 
-	Socket socket = OpenCandidate(candidate);
-	if (INVALID_SOCKET == socket) {
-		LOGE("Cannot open socket with candidate %s",
-                candidate->ToString().c_str());
-		return -1;
-	}
+    int res = -1;
+    do {
+        unique_lock<std::mutex> lock(mmutex);
 
-	shared_ptr<CandidateStruct> cs;
-	cs = shared_ptr<CandidateStruct>(new CandidateStruct());
-	cs->MCandidate = candidate;
-	cs->MSocket = socket;
+        Socket socket = OpenCandidate(candidate);
+        if (INVALID_SOCKET == socket) {
+            LOGE("Cannot open socket with candidate %s",
+                    candidate->ToString().c_str());
+            break;
+        }
 
-	this->mcandidateList.push_back(cs);
+        shared_ptr<CandidateStruct> cs;
+        cs = shared_ptr<CandidateStruct>(new CandidateStruct());
+        cs->MCandidate = candidate;
+        cs->MSocket = socket;
 
-	if (NULL == mmasterCandidate.get())
-		mmasterCandidate = cs;
+        this->mcandidateList.push_back(cs);
+
+        if (NULL == mmasterCandidate.get())
+            mmasterCandidate = cs;
+
+        res = 0;
+    } while(false);
+
+    misAdd = false;
 	
-	return 0;
+	return res;
 }
 
 int TransceiverU::UpdateLocalCandidateByPort(uint16_t port)
@@ -160,11 +182,13 @@ void TransceiverU::Run()
 {
     // TODO update performance
     while (misRun) {
+        if (misAdd)
+            Thread::Sleep(10); // yield cpu
+
         unique_lock<std::mutex> lock(mmutex);
 
-        Socket *sock = NULL;
         assert(mcandidateList.size() > 0);
-        sock = new Socket[this->mcandidateList.size()];
+        Socket *sock = new Socket[this->mcandidateList.size()];
         for (size_t i = 0; i < mcandidateList.size(); i++)
             sock[i] = mcandidateList[i]->MSocket;
 

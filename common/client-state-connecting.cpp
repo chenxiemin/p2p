@@ -35,9 +35,7 @@ ServantClient::ClientStateConnecting::ClientStateConnecting(ServantClient *clien
 
 ServantClient::ClientStateConnecting::~ClientStateConnecting()
 {
-	if (NULL != mtimer)
-		mtimer->Stop();
-	mtimer.reset();
+    this->Disconnect();
 }
 
 int ServantClient::ClientStateConnecting::Connect()
@@ -47,6 +45,16 @@ int ServantClient::ClientStateConnecting::Connect()
 	mtimer->Start(true);
 
 	return 0;
+}
+
+void ServantClient::ClientStateConnecting::Disconnect()
+{
+	unique_lock<mutex> lock(mmutex);
+
+    if (NULL != mtimer) {
+        mtimer->Stop();
+        mtimer.reset();
+    }
 }
 
 void ServantClient::ClientStateConnecting::OnTimer()
@@ -159,9 +167,6 @@ int ServantClient::ClientStateConnecting::OnMessage(shared_ptr<ReceiveMessage> m
             GenerateGuessList(shared_ptr<Candidate>(new Candidate(0,
                             PClient->PeerCandidate->Port())), 100, 1000);
 
-            LOGI("Open multi candidates to punch remote peer: %s",
-                    PClient->PeerCandidate->ToString().c_str());
-
             for (auto iter = mcandidateGuessList.begin();
                     iter != mcandidateGuessList.end(); iter++) {
                 int res = PClient->mtransport->AddLocalCandidate((*iter));
@@ -169,6 +174,9 @@ int ServantClient::ClientStateConnecting::OnMessage(shared_ptr<ReceiveMessage> m
                     LOGE("Cannot add candidate: %s",
                             (*iter)->ToString().c_str());
             }
+
+            LOGI("Open multi candidates to punch remote peer: %s",
+                    PClient->PeerCandidate->ToString().c_str());
 
             // save the origin master port for restore
             int masterPort = PClient->mtransport->GetLocalCandidate()->Port();
@@ -189,6 +197,7 @@ int ServantClient::ClientStateConnecting::OnMessage(shared_ptr<ReceiveMessage> m
                                 (*iter)->MCandidate->ToString().c_str(), res, j);
                 }
             }
+
             PClient->mtransport->UpdateLocalCandidateByPort(masterPort);
         }
 

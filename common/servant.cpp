@@ -221,6 +221,7 @@ ServantClient::ServantClient(const char *ip, uint16_t port) :
 
 ServantClient::~ServantClient()
 {
+    this->Logout();
 	if (NULL != mtransport.get()) {
 		mtransport->Close();
 		mtransport.reset();
@@ -292,7 +293,8 @@ void ServantClient::Disconnect()
 	assert(NULL != mstate.get());
 	assert(NULL != meventThread.get());
 
-	if (SERVANT_CLIENT_CONNECTED != this->GetState()) {
+	if (SERVANT_CLIENT_CONNECTED != this->GetState() && 
+            SERVANT_CLIENT_CONNECTING != this->GetState()) {
 		LOGE("Invalid state during connect: %d", this->GetState());
 		return;
 	}

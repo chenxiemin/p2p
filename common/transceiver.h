@@ -83,6 +83,7 @@ class TransceiverU : public cxm::util::IRunnable, public IMessageSink
 	private: std::vector<std::shared_ptr<CandidateStruct>> mcandidateList;
 	private: std::shared_ptr<CandidateStruct> mmasterCandidate;
     private: std::mutex mmutex;
+    private: volatile bool misAdd;
 
 	public: Socket GetSocket()
 	{
@@ -105,8 +106,8 @@ class TransceiverU : public cxm::util::IRunnable, public IMessageSink
 
     public: void CloseCandidateListWithoutMaster();
 
-	public: TransceiverU() : misRun(false), mpsink(NULL) {}
-    public: virtual ~TransceiverU() { Close(); }
+	public: TransceiverU();
+    public: virtual ~TransceiverU();
 
 	public: int Open();
 	public: void Close();

@@ -237,6 +237,7 @@ class ServantClient : cxm::p2p::IReveiverSinkU, cxm::util::IEventSink
 		virtual ~ClientStateConnecting();
 
 		virtual int Connect();
+		virtual void Disconnect();
 		virtual void Logout();
 
 		virtual int OnMessage(std::shared_ptr<ReceiveMessage> message);
