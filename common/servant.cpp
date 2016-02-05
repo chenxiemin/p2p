@@ -202,7 +202,7 @@ void ServantServer::OnConnectMessage(std::shared_ptr<ReceiveMessage> message)
 ServantClient::ServantClient(const char *ip, uint16_t port) :
 	mnatType(STUN_NAT_TYPE_UNKNOWN), mpsink(NULL), mpDataSink(NULL),
 	misServerKeepAlive(false), misPeerKeepAlive(false),
-    mconnectingTimeoutMils(30 * 1000), mpeerRole(CXM_P2P_PEER_ROLE_SLAVE)
+    mconnectingTimeoutMils(60 * 1000), mpeerRole(CXM_P2P_PEER_ROLE_SLAVE)
 {
 	// start event thread
 	meventThread = shared_ptr<UnifyEventThread>(new UnifyEventThread("ServantClient"));
