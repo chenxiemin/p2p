@@ -41,6 +41,10 @@ void ServantClient::ClientStateLogouting::Logout()
 	unique_lock<mutex> lock(PClient->mlogoutMutex);
 	PClient->mlogoutCV.notify_one();
 	LOGD("After notify logout success");
+
+    // set state
+	shared_ptr<ServantClient::ClientState> oldState =
+        PClient->SetStateInternal(SERVANT_CLIENT_LOGOUT);
 }
 
 }

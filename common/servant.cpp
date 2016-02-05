@@ -256,15 +256,16 @@ void ServantClient::Logout()
 {
 	assert(NULL != mstate.get());
 	assert(NULL != meventThread.get());
+
+    LOGD("Logout at current state: %d", this->GetState());
+	unique_lock<mutex> lock(mlogoutMutex);
 	if (SERVANT_CLIENT_LOGOUT == this->GetState())
 		return;
-
-	unique_lock<mutex> lock(mlogoutMutex);
 
 	// put login event
 	this->meventThread->PutEvent(SERVANT_CLIENT_EVENT_LOGOUT);
 	// waiting for logout event arrive
-	LOGD("Hangup to wait logout event arriving");
+	LOGD("Before hangup to wait logout event arriving");
 	mlogoutCV.wait(lock);
 	LOGD("Hangup success");
 }
