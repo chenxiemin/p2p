@@ -46,17 +46,18 @@ ServantClient::ClientStateConnecting::~ClientStateConnecting()
 int ServantClient::ClientStateConnecting::Connect()
 {
     LOGD("Connecting state start connect with the role: %d", PClient->mpeerRole);
-    if (CXM_P2P_PEER_ROLE_MASTER == PClient->mpeerRole) {
-        // master start a time to connect initative
-        this->OnTimer();
-        mtimer->Start(true);
-    } else {
+    if (CXM_P2P_PEER_ROLE_SLAVE == PClient->mpeerRole) {
         // slave do not connect initiative
         // at this moment, the login state has already saved remote peer info
         this->OnReplyConnect();
     }
 
-	return 0;
+    // master start a time to connect initative
+    // time also used to check connecting timeout
+    this->OnTimer();
+    mtimer->Start(true);
+
+    return 0;
 }
 
 void ServantClient::ClientStateConnecting::Disconnect()
@@ -306,7 +307,7 @@ void ServantClient::ClientStateConnecting::OnReplyConnect()
 
     if (CXM_P2P_PEER_ROLE_SLAVE == PClient->mpeerRole) {
         // slave peer use short TTL udp packet to open the port
-        int ttl = 2;
+        int ttl = 6;
         int error = setsockopt(PClient->mtransport->GetSocket(),
                 IPPROTO_IP, IP_TTL, (const char *)&ttl, sizeof(int));
         LOGD("Set socket ttl to %d with error %d", ttl, error);
