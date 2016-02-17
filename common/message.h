@@ -37,8 +37,8 @@ typedef enum {
 #endif
 
 typedef enum {
-    CXM_P2P_PEER_ROLE_MASTER,
-    CXM_P2P_PEER_ROLE_SLAVE
+    CXM_P2P_PEER_ROLE_MASTER, // caller
+    CXM_P2P_PEER_ROLE_SLAVE // callee
 } CXM_P2P_PEER_ROLE_T;
 
 typedef enum {
