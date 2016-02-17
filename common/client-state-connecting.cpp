@@ -307,14 +307,14 @@ void ServantClient::ClientStateConnecting::OnReplyConnect()
 
     if (CXM_P2P_PEER_ROLE_SLAVE == PClient->mpeerRole) {
         // slave peer use short TTL udp packet to open the port
-        int ttl = 6;
+        int ttl = 4;
         int error = setsockopt(PClient->mtransport->GetSocket(),
                 IPPROTO_IP, IP_TTL, (const char *)&ttl, sizeof(int));
         LOGD("Set socket ttl to %d with error %d", ttl, error);
 
         GenerateGuessList(shared_ptr<Candidate>(
                     new Candidate(PClient->PeerCandidate->Ip(),
-                        PClient->PeerCandidate->Port())), 520, 500);
+                        PClient->PeerCandidate->Port())), 320, 500);
 
         for (auto iter = mcandidateGuessList.begin();
                 iter != mcandidateGuessList.end(); iter++) {
@@ -330,7 +330,7 @@ void ServantClient::ClientStateConnecting::OnReplyConnect()
     } else {
         PClient->mtransport->CloseCandidateListWithoutMaster();
         GenerateGuessList(shared_ptr<Candidate>(new Candidate(0,
-                        PClient->PeerCandidate->Port())), 220, 1000);
+                        PClient->PeerCandidate->Port())), 220, 500);
 
         for (auto iter = mcandidateGuessList.begin();
                 iter != mcandidateGuessList.end(); iter++) {
@@ -340,8 +340,8 @@ void ServantClient::ClientStateConnecting::OnReplyConnect()
                         (*iter)->ToString().c_str());
         }
 
-        LOGI("Open multi candidates to punch remote peer %s, asleep to punch",
-                PClient->PeerCandidate->ToString().c_str());
+        LOGI("Open multi candidates to punch remote peer %s, size %d asleep to punch",
+                PClient->PeerCandidate->ToString().c_str(), 220);
         Thread::Sleep(500);
 
         // save the origin master port for restore
