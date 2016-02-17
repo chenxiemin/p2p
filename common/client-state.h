@@ -24,23 +24,9 @@
 namespace cxm {
 namespace p2p {
 
-	typedef enum {
-		SERVANT_CLIENT_LOGOUT,
-		SERVANT_CLIENT_LOGINING,
-		// Login state indicate that
-		// the client has connected to the P2P server
-		SERVANT_CLIENT_LOGIN,
-		SERVANT_CLIENT_CONNECTING,
-		// Connected state indicate that the client
-		// has already connected to the peer
-		SERVANT_CLIENT_CONNECTED,
-		SERVANT_CLIENT_DISCONNECTING,
-		SERVANT_CLIENT_LOGOUTING,
-	} SERVANT_CLIENT_STATE_T;
 
-    class ServantClient;
-    class ReceiveMessage;
-
+class ServantClient;
+class ReceiveMessage;
 
 struct ClientState
 {

@@ -3,6 +3,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 #endif
 
+#include "client-state.h"
 #include "servant.h"
 #include "log.h"
 

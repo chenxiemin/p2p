@@ -18,7 +18,6 @@
 #include "transceiver.h"
 #include "stun-resolver.h"
 #include "event-args.h"
-#include "client-state.h"
 
 namespace cxm {
 namespace p2p {
@@ -123,6 +122,22 @@ class IServantClientDataSink
 	public: virtual void OnData(std::shared_ptr<P2PPacket> packet) = 0;
 };
 
+class ClientState;
+
+typedef enum {
+	SERVANT_CLIENT_LOGOUT,
+	SERVANT_CLIENT_LOGINING,
+	// Login state indicate that
+	// the client has connected to the P2P server
+	SERVANT_CLIENT_LOGIN,
+	SERVANT_CLIENT_CONNECTING,
+	// Connected state indicate that the client
+	// has already connected to the peer
+	SERVANT_CLIENT_CONNECTED,
+	SERVANT_CLIENT_DISCONNECTING,
+	SERVANT_CLIENT_LOGOUTING,
+} SERVANT_CLIENT_STATE_T;
+
 class ServantClient : cxm::p2p::IReveiverSinkU, cxm::util::IEventSink
 {
 	#define SERVANT_P2P_MESSAGE "hi:chenxiemin"
@@ -154,8 +169,6 @@ class ServantClient : cxm::p2p::IReveiverSinkU, cxm::util::IEventSink
 			 
 	private: std::shared_ptr<cxm::util::UnifyEventThread> meventThread;
 
-	private: STUN_NAT_TYPE_T mnatType;
-
 	private: std::mutex mstateMutex;
 	private: std::shared_ptr<ClientState> mstate;
 
@@ -165,15 +178,17 @@ class ServantClient : cxm::p2p::IReveiverSinkU, cxm::util::IEventSink
 	private: IServantClientSink *mpsink;
 	private: IServantClientDataSink *mpDataSink;
 
+	private: STUN_NAT_TYPE_T mnatType;
+
+    // timeout mils trying to establish the p2p connection
+    private: int mconnectingTimeoutMils;
+    private: CXM_P2P_PEER_ROLE_T mpeerRole;
 	// candidate of remote peer
 	private: std::shared_ptr<Candidate> PeerCandidate;
-			
+
 	private: bool misServerKeepAlive;
 	private: bool misPeerKeepAlive;
 	private: std::chrono::system_clock::time_point mlastPeerKeepAliveTime;
-
-    private: int mconnectingTimeoutMils;
-    private: CXM_P2P_PEER_ROLE_T mpeerRole;
 
 	public: ServantClient(const char *serverIp,
 		uint16_t port = ServantServer::SERVANT_SERVER_PORT);
@@ -183,7 +198,7 @@ class ServantClient : cxm::p2p::IReveiverSinkU, cxm::util::IEventSink
 	public: void SetDataSink(IServantClientDataSink *sink) { mpDataSink = sink; }
 	public: void SetName(std::string name) { mname = name; }
 	public: void SetRemote(std::string remote) { mremotePeer = remote; }
-	public: SERVANT_CLIENT_STATE_T GetState() { return mstate->State; }
+	public: SERVANT_CLIENT_STATE_T GetState();
 	public: std::string GetRemote() { return mremotePeer; }
 	public: std::string GetName() { return mname; }
 
@@ -256,3 +271,4 @@ class ServantClient : cxm::p2p::IReveiverSinkU, cxm::util::IEventSink
 }
 }
 #endif
+

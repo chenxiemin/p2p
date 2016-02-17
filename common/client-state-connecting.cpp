@@ -10,6 +10,7 @@
 #include <string.h>
 #include <sstream>
 
+#include "client-state.h"
 #include "servant.h"
 #include "log.h"
 #include "network.h"

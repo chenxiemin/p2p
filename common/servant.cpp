@@ -7,6 +7,7 @@
 
 #include "servant.h"
 #include "log.h"
+#include "client-state.h"
 
 using namespace std;
 using namespace std::chrono;
@@ -421,6 +422,11 @@ void ServantClient::OnData(std::shared_ptr<ReceiveData> data)
 
 	// swith thread
 	this->meventThread->PutEvent(SERVANT_CLIENT_EVENT_ON_DATA, message);
+}
+
+SERVANT_CLIENT_STATE_T ServantClient::GetState()
+{
+    return mstate->State;
 }
 
 shared_ptr<ClientState> ServantClient::SetStateInternal(SERVANT_CLIENT_STATE_T state)
