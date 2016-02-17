@@ -423,7 +423,7 @@ void ServantClient::OnData(std::shared_ptr<ReceiveData> data)
 	this->meventThread->PutEvent(SERVANT_CLIENT_EVENT_ON_DATA, message);
 }
 
-shared_ptr<ServantClient::ClientState> ServantClient::SetStateInternal(SERVANT_CLIENT_STATE_T state)
+shared_ptr<ClientState> ServantClient::SetStateInternal(SERVANT_CLIENT_STATE_T state)
 {
 	unique_lock<std::mutex> lock(mstateMutex);
 

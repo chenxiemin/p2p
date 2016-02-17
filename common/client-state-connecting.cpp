@@ -23,7 +23,7 @@ using namespace cxm::util;
 namespace cxm {
 namespace p2p {
 
-ServantClient::ClientStateConnecting::ClientStateConnecting(ServantClient *client) : ClientState(SERVANT_CLIENT_CONNECTING, client)
+ClientStateConnecting::ClientStateConnecting(ServantClient *client) : ClientState(SERVANT_CLIENT_CONNECTING, client)
 {
     mlastReplyRequestTime = system_clock::from_time_t(0);
     mlastReplyConnectTime = system_clock::from_time_t(0);
@@ -34,7 +34,7 @@ ServantClient::ClientStateConnecting::ClientStateConnecting(ServantClient *clien
 	mtimer = shared_ptr<Timer>(new Timer(this, milliseconds(CONNECTING_RETRY_MILS)));
 }
 
-ServantClient::ClientStateConnecting::~ClientStateConnecting()
+ClientStateConnecting::~ClientStateConnecting()
 {
     if (PClient->GetState() != SERVANT_CLIENT_CONNECTED) {
         LOGD("Destroy ClientStateConnecting to disconnect at state: %d",
@@ -43,7 +43,7 @@ ServantClient::ClientStateConnecting::~ClientStateConnecting()
     }
 }
 
-int ServantClient::ClientStateConnecting::Connect()
+int ClientStateConnecting::Connect()
 {
     LOGD("Connecting state start connect with the role: %d", PClient->mpeerRole);
     if (CXM_P2P_PEER_ROLE_SLAVE == PClient->mpeerRole) {
@@ -60,7 +60,7 @@ int ServantClient::ClientStateConnecting::Connect()
     return 0;
 }
 
-void ServantClient::ClientStateConnecting::Disconnect()
+void ClientStateConnecting::Disconnect()
 {
     if (NULL == mtimer.get())
         return;
@@ -70,11 +70,11 @@ void ServantClient::ClientStateConnecting::Disconnect()
     mtimer->Stop();
     mtimer.reset();
 
-    shared_ptr<ServantClient::ClientState> oldState =
+    shared_ptr<ClientState> oldState =
         PClient->SetStateInternal(SERVANT_CLIENT_LOGIN);
 }
 
-void ServantClient::ClientStateConnecting::OnTimer()
+void ClientStateConnecting::OnTimer()
 {
     // check timeout
     milliseconds delta = duration_cast<milliseconds>(
@@ -110,7 +110,7 @@ void ServantClient::ClientStateConnecting::OnTimer()
         LOGE("Send connecing command to server failed: %d", res);
 }
 
-int ServantClient::ClientStateConnecting::OnMessage(shared_ptr<ReceiveMessage> message)
+int ClientStateConnecting::OnMessage(shared_ptr<ReceiveMessage> message)
 {
 	switch (message->GetMessage()->type) {
     case CXM_P2P_MESSAGE_REPLY_CONNECT: {
@@ -216,7 +216,7 @@ int ServantClient::ClientStateConnecting::OnMessage(shared_ptr<ReceiveMessage> m
             this->mtimer->Stop();
 
         // hold on this reference to prevent self deleted
-        shared_ptr<ServantClient::ClientState> oldState =
+        shared_ptr<ClientState> oldState =
             PClient->SetStateInternal(SERVANT_CLIENT_CONNECTED);
 
         // start peer keep alive
@@ -233,20 +233,20 @@ int ServantClient::ClientStateConnecting::OnMessage(shared_ptr<ReceiveMessage> m
 	}
 }
 
-void ServantClient::ClientStateConnecting::Logout()
+void ClientStateConnecting::Logout()
 {
 	// stop timer
 	if (NULL != this->mtimer.get())
 		this->mtimer->Stop();
 
 	// change to logouting state
-	shared_ptr<ServantClient::ClientState> oldState =
+	shared_ptr<ClientState> oldState =
 		PClient->SetStateInternal(SERVANT_CLIENT_LOGOUTING);
 	// resend logout event
-	PClient->meventThread->PutEvent(SERVANT_CLIENT_EVENT_LOGOUT);
+	PClient->meventThread->PutEvent(ServantClient::SERVANT_CLIENT_EVENT_LOGOUT);
 }
 
-void ServantClient::ClientStateConnecting::OnReplyConnect()
+void ClientStateConnecting::OnReplyConnect()
 {
     assert(NULL != PClient->PeerCandidate.get() &&
             0 != PClient->PeerCandidate->Ip() &&
@@ -322,7 +322,7 @@ void ServantClient::ClientStateConnecting::OnReplyConnect()
     }
 }
 
-void ServantClient::ClientStateConnecting::GenerateGuessList(
+void ClientStateConnecting::GenerateGuessList(
         shared_ptr<Candidate> candidate, int generateSize, int minPort)
 {
     srand(time(NULL));

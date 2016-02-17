@@ -18,6 +18,7 @@
 #include "transceiver.h"
 #include "stun-resolver.h"
 #include "event-args.h"
+#include "client-state.h"
 
 namespace cxm {
 namespace p2p {
@@ -133,145 +134,6 @@ class ServantClient : cxm::p2p::IReveiverSinkU, cxm::util::IEventSink
 	public: static const int SERVANT_CLIENT_PEER_KEEP_ALIVE_DELTA_MILS = 500;
 	public: static const int SERVANT_CLIENT_PEER_KEEP_ALIVE_TIMEOUT = 1000 * 30;
 
-	public: typedef enum {
-		SERVANT_CLIENT_LOGOUT,
-		SERVANT_CLIENT_LOGINING,
-		// Login state indicate that
-		// the client has connected to the P2P server
-		SERVANT_CLIENT_LOGIN,
-		SERVANT_CLIENT_CONNECTING,
-		// Connected state indicate that the client
-		// has already connected to the peer
-		SERVANT_CLIENT_CONNECTED,
-		SERVANT_CLIENT_DISCONNECTING,
-		SERVANT_CLIENT_LOGOUTING,
-	} SERVANT_CLIENT_STATE_T;
-
-	private: struct ClientState
-	{
-		SERVANT_CLIENT_STATE_T State;
-		ServantClient *PClient;
-
-		ClientState(SERVANT_CLIENT_STATE_T state, ServantClient *client) :
-			State(state), PClient(client) { }
-		virtual ~ClientState() { }
-
-		virtual int Login() { return -1; };
-		virtual void Logout() { };
-		virtual int Connect() { return -1; };
-		virtual void Disconnect() { };
-
-		virtual int SendTo(const uint8_t *buffer, int len) { return -1; }
-		virtual int OnMessage(std::shared_ptr<ReceiveMessage> pmsg) { return -1; };
-
-		virtual void OnStateForeground() { }
-	};
-	private: struct ClientStateLogout : public ClientState
-	{
-		SERVANT_CLIENT_STATE_T State;
-
-		ClientStateLogout(ServantClient *client) :
-			ClientState(SERVANT_CLIENT_LOGOUT, client) { }
-
-		virtual int Login();
-	};
-	private: struct ClientStateLogining : public ClientState, public cxm::util::ITimerSink
-	{
-		SERVANT_CLIENT_STATE_T State;
-		// timer for triggering connecting request repeativity
-		private: std::shared_ptr<cxm::util::Timer> mtimer;
-		std::mutex mmutex;
-
-		public: ClientStateLogining(ServantClient *client) :
-			ClientState(SERVANT_CLIENT_LOGINING, client) { }
-
-		virtual ~ClientStateLogining()
-		{
-			if (NULL != mtimer)
-				mtimer->Stop();
-			mtimer.reset();
-		}
-
-		virtual int Login();
-		virtual void Logout();
-		virtual int OnMessage(std::shared_ptr<ReceiveMessage> message);
-
-		virtual void OnTimer();
-	};
-	private: struct ClientStateLogin : public ClientState
-	{
-		SERVANT_CLIENT_STATE_T State;
-
-		ClientStateLogin(ServantClient *client) :
-			ClientState(SERVANT_CLIENT_LOGIN, client) { }
-
-		virtual int Connect();
-		virtual void Logout();
-
-		virtual int OnMessage(std::shared_ptr<ReceiveMessage> message);
-		virtual void OnStateForeground();
-	};
-	private: struct ClientStateLogouting : public ClientState
-	{
-		SERVANT_CLIENT_STATE_T State;
-
-		ClientStateLogouting(ServantClient *client) :
-			ClientState(SERVANT_CLIENT_LOGOUTING, client) { }
-
-		virtual void Logout();
-	};
-	private: struct ClientStateConnecting : public ClientState, public cxm::util::ITimerSink
-	{
-		SERVANT_CLIENT_STATE_T State;
-		// timer for triggering connecting request repeativity
-		std::shared_ptr<cxm::util::Timer> mtimer;
-		std::mutex mmutex;
-        std::chrono::system_clock::time_point mlastReplyRequestTime;
-        std::chrono::system_clock::time_point mlastReplyConnectTime;
-        std::chrono::system_clock::time_point mstartTime;
-
-        std::vector<std::shared_ptr<Candidate>> mcandidateGuessList;
-
-		ClientStateConnecting(ServantClient *client);
-
-		virtual ~ClientStateConnecting();
-
-		virtual int Connect();
-		virtual void Disconnect();
-		virtual void Logout();
-
-		virtual int OnMessage(std::shared_ptr<ReceiveMessage> message);
-		virtual void OnTimer();
-
-        private: void GenerateGuessList(std::shared_ptr<Candidate> candidate,
-                         int size, int minPort);
-        private: void OnReplyConnect();
-	};
-	private: struct ClientStateConnected : public ClientState
-	{
-		SERVANT_CLIENT_STATE_T State;
-		uint8_t Buffer[TransceiverU::MAX_RECEIVE_BUFFER_SIZE];
-
-		ClientStateConnected(ServantClient *client) :
-			ClientState(SERVANT_CLIENT_CONNECTED, client) { }
-
-		virtual int SendTo(const uint8_t *buffer, int len);
-		virtual int OnMessage(std::shared_ptr<ReceiveMessage> message);
-		virtual void Logout();
-		virtual void Disconnect();
-	};
-	private: struct ClientStateDisconnecting : public ClientState
-	{
-		SERVANT_CLIENT_STATE_T State;
-
-		ClientStateDisconnecting(ServantClient *client) :
-			ClientState(SERVANT_CLIENT_DISCONNECTING, client) { }
-
-		virtual void Logout();
-		virtual void Disconnect();
-		void DisconnectInternal();
-	};
-
 	private: typedef enum {
 		SERVANT_CLIENT_EVENT_LOGIN,
 		SERVANT_CLIENT_EVENT_LOGOUT,
@@ -380,6 +242,15 @@ class ServantClient : cxm::p2p::IReveiverSinkU, cxm::util::IEventSink
 	private: void OnReplyConnect(const Message *pmsg);
 	private: void OnP2PConnect(const Message *pmsg);
 	private: void OnReplyP2PConnect(const Message *pmsg);
+
+    friend class ClientState;
+    friend class ClientStateLogout;
+    friend class ClientStateLogouting;
+    friend class ClientStateLogin;
+    friend class ClientStateLogining;
+    friend class ClientStateConnecting;
+    friend class ClientStateConnected;
+    friend class ClientStateDisconnecting;
 };
 
 }

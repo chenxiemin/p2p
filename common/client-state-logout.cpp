@@ -7,13 +7,13 @@ using namespace cxm::util;
 namespace cxm {
 namespace p2p {
 
-int ServantClient::ClientStateLogout::Login()
+int ClientStateLogout::Login()
 {
 	// hold on self to prevent deleted
-	shared_ptr<ServantClient::ClientState> oldState = PClient->SetStateInternal(SERVANT_CLIENT_LOGINING);
+	shared_ptr<ClientState> oldState = PClient->SetStateInternal(SERVANT_CLIENT_LOGINING);
 
 	// put login event
-	PClient->meventThread->PutEvent(SERVANT_CLIENT_EVENT_LOGIN);
+	PClient->meventThread->PutEvent(ServantClient::SERVANT_CLIENT_EVENT_LOGIN);
 
 	return 0;
 }

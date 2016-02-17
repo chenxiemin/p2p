@@ -13,7 +13,7 @@ using namespace cxm::util;
 namespace cxm {
 namespace p2p {
 
-int ServantClient::ClientStateLogining::Login()
+int ClientStateLogining::Login()
 {
 	assert(NULL != PClient->mtransport.get());
 #if 0 // do not need to get network type anymore
@@ -54,7 +54,7 @@ int ServantClient::ClientStateLogining::Login()
 	return 0;
 }
 
-void ServantClient::ClientStateLogining::Logout()
+void ClientStateLogining::Logout()
 {
 	// stop self timer first
 	if (NULL != this->mtimer) {
@@ -63,11 +63,11 @@ void ServantClient::ClientStateLogining::Logout()
 	}
 
 	// change to logouting state
-	shared_ptr<ServantClient::ClientState> oldState = PClient->SetStateInternal(SERVANT_CLIENT_LOGOUTING);
-	PClient->meventThread->PutEvent(SERVANT_CLIENT_EVENT_LOGOUT);
+	shared_ptr<ClientState> oldState = PClient->SetStateInternal(SERVANT_CLIENT_LOGOUTING);
+	PClient->meventThread->PutEvent(ServantClient::SERVANT_CLIENT_EVENT_LOGOUT);
 }
 
-void ServantClient::ClientStateLogining::OnTimer()
+void ClientStateLogining::OnTimer()
 {
 	unique_lock<mutex> lock(mmutex);
 
@@ -90,7 +90,7 @@ void ServantClient::ClientStateLogining::OnTimer()
 		PClient->mserverCandidate->ToString().c_str());
 }
 
-int ServantClient::ClientStateLogining::OnMessage(shared_ptr<ReceiveMessage> message)
+int ClientStateLogining::OnMessage(shared_ptr<ReceiveMessage> message)
 {
 	if (CXM_P2P_MESSAGE_LOGIN_REPLY != message->GetMessage()->type) {
 		LOGE("Invalid message type when loginning state: %d", message->GetMessage()->type);
@@ -98,7 +98,7 @@ int ServantClient::ClientStateLogining::OnMessage(shared_ptr<ReceiveMessage> mes
 	}
 
 	// receive login success message, goto login state
-	shared_ptr<ServantClient::ClientState> oldState = PClient->SetStateInternal(SERVANT_CLIENT_LOGIN);
+	shared_ptr<ClientState> oldState = PClient->SetStateInternal(SERVANT_CLIENT_LOGIN);
 
 	// Notify connect
 	PClient->FireOnLoginNofity();

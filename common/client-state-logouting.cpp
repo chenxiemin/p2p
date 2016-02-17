@@ -12,7 +12,7 @@ using namespace cxm::util;
 namespace cxm {
 namespace p2p {
 
-void ServantClient::ClientStateLogouting::Logout()
+void ClientStateLogouting::Logout()
 {
 	// send message
 	Message msg;
@@ -43,7 +43,7 @@ void ServantClient::ClientStateLogouting::Logout()
 	LOGD("After notify logout success");
 
     // set state
-	shared_ptr<ServantClient::ClientState> oldState =
+	shared_ptr<ClientState> oldState =
         PClient->SetStateInternal(SERVANT_CLIENT_LOGOUT);
 }
 

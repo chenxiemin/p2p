@@ -8,11 +8,11 @@ using namespace cxm::util;
 namespace cxm {
 namespace p2p {
 
-void ServantClient::ClientStateLogin::OnStateForeground()
+void ClientStateLogin::OnStateForeground()
 {
 }
 
-int ServantClient::ClientStateLogin::OnMessage(std::shared_ptr<ReceiveMessage> message)
+int ClientStateLogin::OnMessage(std::shared_ptr<ReceiveMessage> message)
 {
     const Message *msg = message->GetMessage();
     assert(NULL != msg);
@@ -45,19 +45,19 @@ int ServantClient::ClientStateLogin::OnMessage(std::shared_ptr<ReceiveMessage> m
     return 0;
 }
 
-int ServantClient::ClientStateLogin::Connect()
+int ClientStateLogin::Connect()
 {
-	shared_ptr<ServantClient::ClientState> oldState = PClient->SetStateInternal(SERVANT_CLIENT_CONNECTING);
-	PClient->meventThread->PutEvent(SERVANT_CLIENT_EVENT_CONNECT);
+	shared_ptr<ClientState> oldState = PClient->SetStateInternal(SERVANT_CLIENT_CONNECTING);
+	PClient->meventThread->PutEvent(ServantClient::SERVANT_CLIENT_EVENT_CONNECT);
 	return 0;
 }
 
-void ServantClient::ClientStateLogin::Logout()
+void ClientStateLogin::Logout()
 {
 	// change to logouting state
-	shared_ptr<ServantClient::ClientState> oldState = PClient->SetStateInternal(SERVANT_CLIENT_LOGOUTING);
+	shared_ptr<ClientState> oldState = PClient->SetStateInternal(SERVANT_CLIENT_LOGOUTING);
 	// resend logout event
-	PClient->meventThread->PutEvent(SERVANT_CLIENT_EVENT_LOGOUT);
+	PClient->meventThread->PutEvent(ServantClient::SERVANT_CLIENT_EVENT_LOGOUT);
 }
 
 }

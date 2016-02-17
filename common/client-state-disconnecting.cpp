@@ -7,22 +7,22 @@ using namespace cxm::util;
 namespace cxm {
 namespace p2p {
 
-void ServantClient::ClientStateDisconnecting::Logout()
+void ClientStateDisconnecting::Logout()
 {
 	this->DisconnectInternal();
-	shared_ptr<ServantClient::ClientState> oldState = PClient->SetStateInternal(SERVANT_CLIENT_LOGIN);
+	shared_ptr<ClientState> oldState = PClient->SetStateInternal(SERVANT_CLIENT_LOGIN);
 
 	// resend logout event
-	PClient->meventThread->PutEvent(SERVANT_CLIENT_EVENT_LOGOUT);
+	PClient->meventThread->PutEvent(ServantClient::SERVANT_CLIENT_EVENT_LOGOUT);
 }
 
-void ServantClient::ClientStateDisconnecting::Disconnect()
+void ClientStateDisconnecting::Disconnect()
 {
 	this->DisconnectInternal();
-	shared_ptr<ServantClient::ClientState> oldState = PClient->SetStateInternal(SERVANT_CLIENT_LOGIN);
+	shared_ptr<ClientState> oldState = PClient->SetStateInternal(SERVANT_CLIENT_LOGIN);
 }
 
-void ServantClient::ClientStateDisconnecting::DisconnectInternal()
+void ClientStateDisconnecting::DisconnectInternal()
 {
 	// send remote peer disconnect message
 	Message msg;
