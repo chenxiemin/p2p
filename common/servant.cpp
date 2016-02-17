@@ -73,11 +73,6 @@ void ServantServer::OnData(shared_ptr<ReceiveData> data)
 	case CXM_P2P_MESSAGE_LOGOUT:
 		OnLogoutMessage(message);
 		break;
-#if 0
-	case CXM_P2P_MESSAGE_REQUEST:
-		OnRequestMessage(message);
-		break;
-#endif
 	case CXM_P2P_MESSAGE_CONNECT:
 		OnConnectMessage(message);
 		break;
@@ -123,40 +118,6 @@ void ServantServer::OnLogoutMessage(std::shared_ptr<ReceiveMessage> message)
 		LOGI("Client %s logout", clientName.c_str());
 	}
 }
-
-#if 0
-void ServantServer::OnRequestMessage(std::shared_ptr<ReceiveMessage> message)
-{
-	string requestClient = message->GetMessage()->u.client.uc.request.remoteName;
-	shared_ptr<Candidate> requestPeerCandidate;
-	if (NULL != mclientList[requestClient].get())
-		requestPeerCandidate = mclientList[requestClient];
-	else
-		LOGE("Requestd client not exist: %s", requestClient.c_str());
-
-	shared_ptr<Candidate> clientCandidate = message->GetRemoteCandidate();
-
-	// send reply
-	Message msgReply;
-	msgReply.type = CXM_P2P_MESSAGE_REPLY_REQUEST;
-	if (NULL != requestPeerCandidate.get()) {
-		msgReply.u.client.uc.replyRequest.result = CXM_P2P_REPLY_RESULT_OK;
-		msgReply.u.client.uc.replyRequest.remoteIp = requestPeerCandidate->Ip();
-		msgReply.u.client.uc.replyRequest.remotePort = requestPeerCandidate->Port();
-	} else {
-		msgReply.u.client.uc.replyRequest.result = CXM_P2P_REPLY_RESULT_UNKNOWN_PEER;
-	}
-
-	int res = this->mtransceiver->SendTo(clientCandidate,
-		(uint8_t *)&msgReply, sizeof(Message));
-	if (0 != res)
-		LOGE("Cannot send reply to client: %d", res);
-	else
-		LOGD("Reply request client %s peer address: %s", 
-			requestClient.c_str(), NULL != requestPeerCandidate ?
-			requestPeerCandidate->ToString().c_str() : "null");
-}
-#endif
 
 void ServantServer::OnConnectMessage(std::shared_ptr<ReceiveMessage> message)
 {
@@ -349,7 +310,7 @@ void ServantClient::StopPeerKeepAlive()
 
 void ServantClient::OnEvent(int type, shared_ptr<IEventArgs> args)
 {
-#if 1
+#if 0
 	LOGD("Client OnEvent: %d", type);
 #endif
 	switch (type) {
@@ -451,7 +412,7 @@ void ServantClient::OnData(std::shared_ptr<ReceiveData> data)
 		LOGE("Invalid message size: %d %d", data->GetLength(), (int)sizeof(Message));
 		return;
 	}
-#if 1
+#if 0
 	LOGD("Client receive message type %d from %s at current status %d",
             message->GetMessage()->type,
 				data->GetRemoteCandidate()->ToString().c_str(),
@@ -501,3 +462,4 @@ shared_ptr<ServantClient::ClientState> ServantClient::SetStateInternal(SERVANT_C
 
 }
 }
+

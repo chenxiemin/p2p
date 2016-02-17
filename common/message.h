@@ -17,8 +17,6 @@ typedef enum {
 	CXM_P2P_MESSAGE_LOGIN_REPLY,
 	CXM_P2P_MESSAGE_LOGOUT,
 	CXM_P2P_MESSAGE_LOGOUT_REPLY,
-	CXM_P2P_MESSAGE_REQUEST, // deprecate
-	CXM_P2P_MESSAGE_REPLY_REQUEST, // deprecate
 	CXM_P2P_MESSAGE_CONNECT,
 	CXM_P2P_MESSAGE_REPLY_CONNECT,
 	CXM_P2P_MESSAGE_DO_P2P_CONNECT,
@@ -70,14 +68,6 @@ struct Message
 				struct {
 
 				} logout;
-				struct {
-					char remoteName[CLIENT_NAME_LENGTH + 1];
-				} request;
-				struct {
-					uint8_t result;
-					uint32_t remoteIp;
-					uint16_t remotePort;
-				} replyRequest;
 				struct {
 					char remoteName[CLIENT_NAME_LENGTH + 1];
 				} connect;

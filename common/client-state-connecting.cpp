@@ -65,19 +65,13 @@ void ServantClient::ClientStateConnecting::Disconnect()
     if (NULL == mtimer.get())
         return;
 
-    LOGD("Before disconnect");
     unique_lock<mutex> lock(mmutex);
-    LOGD("after disconnect");
 
-    LOGD("Before stop timer");
     mtimer->Stop();
     mtimer.reset();
-    LOGD("After stop timer");
 
-#if 1
     shared_ptr<ServantClient::ClientState> oldState =
         PClient->SetStateInternal(SERVANT_CLIENT_LOGIN);
-#endif
 }
 
 void ServantClient::ClientStateConnecting::OnTimer()
@@ -99,71 +93,26 @@ void ServantClient::ClientStateConnecting::OnTimer()
         return;
     }
 
-	unique_lock<mutex> lock(mmutex);
+    unique_lock<mutex> lock(mmutex);
 
-#if 0
-	if (NULL == PClient->PeerCandidate.get()) {
-		// request peer address from server
-		Message msg;
-		msg.type = CXM_P2P_MESSAGE_REQUEST;
-		strncpy(msg.u.client.uc.request.remoteName,
-			PClient->mremotePeer.c_str(), CLIENT_NAME_LENGTH);
+    // send connect message to server
+    // so that server can send the message back to the two peers
+    Message msg;
+    msg.type = CXM_P2P_MESSAGE_CONNECT;
+    strncpy(msg.u.client.clientName, PClient->mname.c_str(), CLIENT_NAME_LENGTH);
+    strncpy(msg.u.client.uc.connect.remoteName, PClient->mremotePeer.c_str(), CLIENT_NAME_LENGTH);
 
-		int res = PClient->mtransport->SendTo(PClient->mserverCandidate,
-			(uint8_t *)&msg, sizeof(Message));
-		if (0 == res)
-			LOGD("Requesting peer address");
-		else
-			LOGE("Requesting peer address fail: %d", res);
-	} else {
-#endif
-		// send connect message to server
-		// so that server can send the message back to the two peers
-		Message msg;
-		msg.type = CXM_P2P_MESSAGE_CONNECT;
-		strncpy(msg.u.client.clientName, PClient->mname.c_str(), CLIENT_NAME_LENGTH);
-		strncpy(msg.u.client.uc.connect.remoteName, PClient->mremotePeer.c_str(), CLIENT_NAME_LENGTH);
-
-		int res = PClient->mtransport->SendTo(PClient->mserverCandidate,
-			(uint8_t *)&msg, sizeof(Message));
-		if (0 == res)
-			LOGD("Sending connecting command to server");
-		else
-			LOGE("Send connecing command to server failed: %d", res);
-	// }
+    int res = PClient->mtransport->SendTo(PClient->mserverCandidate,
+            (uint8_t *)&msg, sizeof(Message));
+    if (0 == res)
+        LOGD("Sending connecting command to server");
+    else
+        LOGE("Send connecing command to server failed: %d", res);
 }
 
 int ServantClient::ClientStateConnecting::OnMessage(shared_ptr<ReceiveMessage> message)
 {
 	switch (message->GetMessage()->type) {
-#if 0
-	case CXM_P2P_MESSAGE_REPLY_REQUEST: {
-		if (CXM_P2P_REPLY_RESULT_OK !=
-			message->GetMessage()->u.client.uc.replyRequest.result) {
-			LOGI("Request peer address error: %d",
-				message->GetMessage()->u.client.uc.replyRequest.result);
-			return 0;
-		}
-		milliseconds delta = duration_cast<milliseconds>(
-                system_clock::now() - mlastReplyRequestTime);
-        if (delta.count() < CONNECTING_RETRY_MILS) {
-            LOGW("Ignore mulit REPLY_REQUEST at delta mils: %d", (int)delta.count());
-            return -1;
-        }
-        mlastReplyRequestTime = system_clock::now();
-
-		PClient->PeerCandidate = shared_ptr<Candidate>(new Candidate(
-			message->GetMessage()->u.client.uc.replyRequest.remoteIp,
-			message->GetMessage()->u.client.uc.replyRequest.remotePort));
-		LOGI("Receiving peer address from server: %s",
-			PClient->PeerCandidate->ToString().c_str());
-
-        // send connect to server right now
-        this->OnTimer();
-
-		return 0;
-	}
-#endif
     case CXM_P2P_MESSAGE_REPLY_CONNECT: {
 		milliseconds delta = duration_cast<milliseconds>(
                 system_clock::now() - mlastReplyConnectTime);
@@ -414,7 +363,9 @@ void ServantClient::ClientStateConnecting::GenerateGuessList(
             iter != mcandidateGuessList.end(); iter++)
         ss << (*iter)->Port() << " ";
 
+#if 0
     LOGD("%s", ss.str().c_str());
+#endif
 }
 
 }

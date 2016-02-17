@@ -87,9 +87,6 @@ class ServantServer : public IReveiverSinkU
 
 	private: void OnLoginMessage(std::shared_ptr<ReceiveMessage> message);
 	private: void OnLogoutMessage(std::shared_ptr<ReceiveMessage> message);
-#if 0
-	private: void OnRequestMessage(std::shared_ptr<ReceiveMessage> message);
-#endif
 	private: void OnConnectMessage(std::shared_ptr<ReceiveMessage> message);
 };
 
@@ -378,9 +375,6 @@ class ServantClient : cxm::p2p::IReveiverSinkU, cxm::util::IEventSink
 	
 	private: virtual void OnEvent(int type, std::shared_ptr<cxm::util::IEventArgs> args);
 	private: virtual void OnData(std::shared_ptr<ReceiveData> data);
-
-	// private: int DoRequest();
-	// private: int DoConnect();
 
 	private: void OnReplyRequest(const Message *pmsg);
 	private: void OnReplyConnect(const Message *pmsg);
