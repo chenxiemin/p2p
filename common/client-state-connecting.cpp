@@ -101,6 +101,7 @@ void ServantClient::ClientStateConnecting::OnTimer()
 
 	unique_lock<mutex> lock(mmutex);
 
+#if 0
 	if (NULL == PClient->PeerCandidate.get()) {
 		// request peer address from server
 		Message msg;
@@ -115,6 +116,7 @@ void ServantClient::ClientStateConnecting::OnTimer()
 		else
 			LOGE("Requesting peer address fail: %d", res);
 	} else {
+#endif
 		// send connect message to server
 		// so that server can send the message back to the two peers
 		Message msg;
@@ -128,12 +130,13 @@ void ServantClient::ClientStateConnecting::OnTimer()
 			LOGD("Sending connecting command to server");
 		else
 			LOGE("Send connecing command to server failed: %d", res);
-	}
+	// }
 }
 
 int ServantClient::ClientStateConnecting::OnMessage(shared_ptr<ReceiveMessage> message)
 {
 	switch (message->GetMessage()->type) {
+#if 0
 	case CXM_P2P_MESSAGE_REPLY_REQUEST: {
 		if (CXM_P2P_REPLY_RESULT_OK !=
 			message->GetMessage()->u.client.uc.replyRequest.result) {
@@ -159,7 +162,9 @@ int ServantClient::ClientStateConnecting::OnMessage(shared_ptr<ReceiveMessage> m
         this->OnTimer();
 
 		return 0;
-	} case CXM_P2P_MESSAGE_REPLY_CONNECT: {
+	}
+#endif
+    case CXM_P2P_MESSAGE_REPLY_CONNECT: {
 		milliseconds delta = duration_cast<milliseconds>(
                 system_clock::now() - mlastReplyConnectTime);
         if (delta.count() < CONNECTING_RETRY_MILS) {

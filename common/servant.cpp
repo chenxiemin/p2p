@@ -73,9 +73,11 @@ void ServantServer::OnData(shared_ptr<ReceiveData> data)
 	case CXM_P2P_MESSAGE_LOGOUT:
 		OnLogoutMessage(message);
 		break;
+#if 0
 	case CXM_P2P_MESSAGE_REQUEST:
 		OnRequestMessage(message);
 		break;
+#endif
 	case CXM_P2P_MESSAGE_CONNECT:
 		OnConnectMessage(message);
 		break;
@@ -122,6 +124,7 @@ void ServantServer::OnLogoutMessage(std::shared_ptr<ReceiveMessage> message)
 	}
 }
 
+#if 0
 void ServantServer::OnRequestMessage(std::shared_ptr<ReceiveMessage> message)
 {
 	string requestClient = message->GetMessage()->u.client.uc.request.remoteName;
@@ -153,6 +156,7 @@ void ServantServer::OnRequestMessage(std::shared_ptr<ReceiveMessage> message)
 			requestClient.c_str(), NULL != requestPeerCandidate ?
 			requestPeerCandidate->ToString().c_str() : "null");
 }
+#endif
 
 void ServantServer::OnConnectMessage(std::shared_ptr<ReceiveMessage> message)
 {

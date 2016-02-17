@@ -87,7 +87,9 @@ class ServantServer : public IReveiverSinkU
 
 	private: void OnLoginMessage(std::shared_ptr<ReceiveMessage> message);
 	private: void OnLogoutMessage(std::shared_ptr<ReceiveMessage> message);
+#if 0
 	private: void OnRequestMessage(std::shared_ptr<ReceiveMessage> message);
+#endif
 	private: void OnConnectMessage(std::shared_ptr<ReceiveMessage> message);
 };
 
