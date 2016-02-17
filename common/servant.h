@@ -71,6 +71,7 @@ class ReceiveMessage : public cxm::util::IEventArgs
 	}
 };
 
+// TODO server check timeout client
 class ServantServer : public IReveiverSinkU
 {
 	public: static const int SERVANT_SERVER_PORT = 8888;
@@ -86,8 +87,10 @@ class ServantServer : public IReveiverSinkU
 	public: virtual void OnData(std::shared_ptr<ReceiveData> data);
 
 	private: void OnLoginMessage(std::shared_ptr<ReceiveMessage> message);
+	private: void OnSubLoginMessage(std::shared_ptr<ReceiveMessage> message);
 	private: void OnLogoutMessage(std::shared_ptr<ReceiveMessage> message);
 	private: void OnConnectMessage(std::shared_ptr<ReceiveMessage> message);
+	private: void OnKeepAliveMessage(std::shared_ptr<ReceiveMessage> message);
 };
 
 typedef enum {
@@ -186,6 +189,7 @@ class ServantClient : cxm::p2p::IReveiverSinkU, cxm::util::IEventSink
 	// candidate of remote peer
 	private: std::shared_ptr<Candidate> PeerCandidate;
 
+    // TODO server failover
 	private: bool misServerKeepAlive;
 	private: bool misPeerKeepAlive;
 	private: std::chrono::system_clock::time_point mlastPeerKeepAliveTime;

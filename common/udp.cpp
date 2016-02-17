@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "udp.h"
+#include "log.h"
 
 #ifdef WIN32
 #else
@@ -345,6 +346,24 @@ sendMessage( Socket fd, char* buf, int l,
    }
     
    return true;
+}
+
+int setTTL(Socket fd, int ttl)
+{
+    if (INVALID_SOCKET == fd) {
+        LOGE("Invalid socket fd");
+        return -1;
+    }
+
+    int error = setsockopt(fd, IPPROTO_IP, IP_TTL,
+            (const char *)&ttl, sizeof(int));
+    if (0 != error) {
+        LOGE("Cannot set socket %d ttl to %d: %s", fd, ttl, strerror(errno));
+        return -1;
+    }
+
+    LOGD("Set socket fd %d ttl to %d", fd, ttl);
+    return 0;
 }
 
 

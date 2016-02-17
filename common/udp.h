@@ -100,6 +100,8 @@ sendMessage( Socket fd, char* msg, int len,
              unsigned int dstIp, unsigned short dstPort,
              bool verbose);
 
+int setTTL(Socket fd, int ttl);
+
 
 /// set up network - does nothing in unix but needed for windows
 void

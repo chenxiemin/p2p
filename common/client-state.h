@@ -112,8 +112,7 @@ struct ClientStateConnecting : public ClientState, public cxm::util::ITimerSink
 	// timer for triggering connecting request repeativity
 	std::shared_ptr<cxm::util::Timer> mtimer;
 	std::mutex mmutex;
-    std::chrono::system_clock::time_point mlastReplyRequestTime;
-    std::chrono::system_clock::time_point mlastReplyConnectTime;
+    // std::chrono::system_clock::time_point mlastReplyConnectTime;
     std::chrono::system_clock::time_point mstartTime;
 
     std::vector<std::shared_ptr<Candidate>> mcandidateGuessList;
@@ -132,6 +131,8 @@ struct ClientStateConnecting : public ClientState, public cxm::util::ITimerSink
     private: void GenerateGuessList(std::shared_ptr<Candidate> candidate,
                      int size, int minPort);
     private: void OnReplyConnect();
+    private: void OnDoP2PConnect(std::shared_ptr<ReceiveMessage> message);
+    private: void OnReplyP2PConnect(std::shared_ptr<ReceiveMessage> message);
 };
 
 struct ClientStateConnected : public ClientState

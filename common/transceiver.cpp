@@ -210,7 +210,6 @@ void TransceiverU::Run()
 
         delete sock;
     }
-
 }
 
 void TransceiverU::OnGetMessage(Socket fd, char *buf, int len,

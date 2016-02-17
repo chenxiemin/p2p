@@ -28,12 +28,13 @@ typedef enum {
 	CXM_P2P_MESSAGE_COUNT // remain last
 } CXM_P2P_MESSAGE_TYPE;
 
-// TODO merge P2P_ROLE_T and PEER_ROLE_T
+#if 0
 typedef enum {
 	CXM_P2P_ROLE_SERVER, // message send by p2p server
 	CXM_P2P_ROLE_CLIENT, // message send from peer to p2p server
 	CXM_P2P_ROLE_P2P // message send from peer to peer
 } CXM_P2P_ROLE_T;
+#endif
 
 typedef enum {
     CXM_P2P_PEER_ROLE_MASTER,
@@ -48,7 +49,7 @@ typedef enum {
 struct Message
 {
 	uint16_t type;
-	uint8_t role;
+	// uint8_t role;
 
 	Message()
 	{
@@ -56,8 +57,6 @@ struct Message
 	}
 
 	union {
-		struct {
-		} server;
 		struct {
 			char clientName[CLIENT_NAME_LENGTH + 1];
 			union {
@@ -79,6 +78,7 @@ struct Message
 				} replyConnect;
 			} uc;
 		} client;
+
 		struct {
 			union {
 				uint16_t userDataLength;

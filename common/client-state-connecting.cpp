@@ -14,6 +14,7 @@
 #include "servant.h"
 #include "log.h"
 #include "network.h"
+#include "udp.h"
 
 using namespace std;
 using namespace std::chrono;
@@ -26,8 +27,7 @@ namespace p2p {
 
 ClientStateConnecting::ClientStateConnecting(ServantClient *client) : ClientState(SERVANT_CLIENT_CONNECTING, client)
 {
-    mlastReplyRequestTime = system_clock::from_time_t(0);
-    mlastReplyConnectTime = system_clock::from_time_t(0);
+    // mlastReplyConnectTime = system_clock::from_time_t(0);
     mstartTime = system_clock::now();
 
     // first start right now
@@ -115,6 +115,7 @@ int ClientStateConnecting::OnMessage(shared_ptr<ReceiveMessage> message)
 {
 	switch (message->GetMessage()->type) {
     case CXM_P2P_MESSAGE_REPLY_CONNECT: {
+#if 0
 		milliseconds delta = duration_cast<milliseconds>(
                 system_clock::now() - mlastReplyConnectTime);
         if (delta.count() < CONNECTING_RETRY_MILS) {
@@ -122,6 +123,7 @@ int ClientStateConnecting::OnMessage(shared_ptr<ReceiveMessage> message)
             return -1;
         }
         mlastReplyConnectTime = system_clock::now();
+#endif
 
         PClient->mpeerRole = (CXM_P2P_PEER_ROLE_T)
             message->GetMessage()->u.client.uc.replyConnect.peerRole;
@@ -136,96 +138,10 @@ int ClientStateConnecting::OnMessage(shared_ptr<ReceiveMessage> message)
 
 		return 0;
 	} case CXM_P2P_MESSAGE_DO_P2P_CONNECT: {
-        // update remote peer candidate if in SYM NAT
-		if (!PClient->PeerCandidate->Equal(message->GetRemoteCandidate())) {
-            LOGI("Receive DO_P2P from different candidate at local %s, update %s to %s",
-				message->GetLocalCandidate()->ToString().c_str(),
-				PClient->PeerCandidate->ToString().c_str(),
-				message->GetRemoteCandidate()->ToString().c_str());
-			PClient->PeerCandidate = message->GetRemoteCandidate();
-		}
-
-        int ttl = 64;
-        int error = setsockopt(PClient->mtransport->GetSocket(),
-                IPPROTO_IP, IP_TTL, (const char *)&ttl, sizeof(int));
-        LOGD("Set socket ttl to %d with error %d", ttl, error);
-
-        for (int i = 0; i < 3; i++) {
-            // send p2p connect
-            Message msg;
-            memset(&msg, 0, sizeof(msg));
-            msg.type = CXM_P2P_MESSAGE_REPLY_P2P_CONNECT;
-            msg.u.p2p.up.p2pReply.yourPrivatePort = message->GetMessage()->u.p2p.up.p2p.myPrivatePort;
-            strncpy(msg.u.p2p.up.p2pReply.key, SERVANT_P2P_REPLY_MESSAGE, CLIENT_NAME_LENGTH);
-
-            int res = PClient->mtransport->SendTo(PClient->PeerCandidate,
-                    (uint8_t *)&msg, sizeof(Message));
-            if (0 != res)
-                LOGE("Cannot send reply p2p connect to %s: %d",
-                        PClient->PeerCandidate->ToString().c_str(), res);
-            else
-                LOGI("Receiving DO_P2P_CONNECT command from peer %s private port %d, "
-                        "send back REPLY_P2P_CONNECT with key: %s via local candidate %s",
-                        PClient->PeerCandidate->ToString().c_str(),
-                        msg.u.p2p.up.p2pReply.yourPrivatePort,
-                        SERVANT_P2P_REPLY_MESSAGE,
-                        PClient->mtransport->GetLocalCandidate()->ToString().c_str());
-        }
-
+        this->OnDoP2PConnect(message);
 		return 0;
     } case CXM_P2P_MESSAGE_REPLY_P2P_CONNECT: {
-        int privatePort = message->GetMessage()->u.p2p.up.p2pReply.yourPrivatePort;
-        LOGI("Receive REPLY_P2P from different candidate via private port %d, update %s to %s",
-                privatePort,
-                PClient->PeerCandidate->ToString().c_str(),
-                message->GetRemoteCandidate()->ToString().c_str());
-        if (!PClient->PeerCandidate->Equal(message->GetRemoteCandidate())) {
-            PClient->PeerCandidate = message->GetRemoteCandidate();
-        }
-        int res = PClient->mtransport->UpdateLocalCandidateByPort(privatePort);
-        if (0 != res) {
-            LOGE("Cannot update transport candidate %s: %d",
-                    message->GetLocalCandidate()->ToString().c_str(), res);
-        }
-
-        for (int i = 0; i < 3; i++) {
-            // send p2p connect to remote candidate again
-            Message msg;
-            memset(&msg, 0, sizeof(msg));
-            msg.type = CXM_P2P_MESSAGE_REPLY_P2P_CONNECT;
-            strncpy(msg.u.p2p.up.p2pReply.key, SERVANT_P2P_REPLY_MESSAGE, CLIENT_NAME_LENGTH);
-
-            int res = PClient->mtransport->SendTo(PClient->PeerCandidate,
-                    (uint8_t *)&msg, sizeof(Message));
-            if (0 != res)
-                LOGE("Cannot send REPLY_P2P_CONNECT to %s: %d",
-                        PClient->PeerCandidate->ToString().c_str(), res);
-            else
-                LOGI("Receiving REPLY_P2P_CONNECT command from peer %s, "
-                        " send again REPLY_P2P_CONNECT with key: %s via local candidate %s",
-                        PClient->PeerCandidate->ToString().c_str(),
-                        SERVANT_P2P_REPLY_MESSAGE,
-                        PClient->mtransport->GetLocalCandidate()->ToString().c_str());
-        }
-
-        LOGI("P2P connection establis successfully between local %s and peer %s",
-                PClient->mtransport->GetLocalCandidate()->ToString().c_str(),
-                PClient->PeerCandidate->ToString().c_str());
-
-        // stop timer
-        if (NULL != this->mtimer.get())
-            this->mtimer->Stop();
-
-        // hold on this reference to prevent self deleted
-        shared_ptr<ClientState> oldState =
-            PClient->SetStateInternal(SERVANT_CLIENT_CONNECTED);
-
-        // start peer keep alive
-        PClient->StartPeerKeepAlive();
-
-        // fire notify
-        PClient->FireOnConnectNofity();
-
+        this->OnReplyP2PConnect(message);
         return 0;
     } default: {
 		LOGE("Unwant message at connecting state: %d", message->GetMessage()->type);
@@ -262,10 +178,7 @@ void ClientStateConnecting::OnReplyConnect()
 
     if (CXM_P2P_PEER_ROLE_SLAVE == PClient->mpeerRole) {
         // slave peer use short TTL udp packet to open the port
-        int ttl = 4;
-        int error = setsockopt(PClient->mtransport->GetSocket(),
-                IPPROTO_IP, IP_TTL, (const char *)&ttl, sizeof(int));
-        LOGD("Set socket ttl to %d with error %d", ttl, error);
+        setTTL(PClient->mtransport->GetSocket(), 4);
 
         GenerateGuessList(shared_ptr<Candidate>(
                     new Candidate(PClient->PeerCandidate->Ip(),
@@ -321,6 +234,91 @@ void ClientStateConnecting::OnReplyConnect()
 
         PClient->mtransport->UpdateLocalCandidateByPort(masterPort);
     }
+}
+
+void ClientStateConnecting::OnDoP2PConnect(shared_ptr<ReceiveMessage> message)
+{
+    // update remote peer candidate if in SYM NAT
+    if (!PClient->PeerCandidate->Equal(message->GetRemoteCandidate())) {
+        LOGI("Receive DO_P2P from different candidate at local %s, update %s to %s",
+                message->GetLocalCandidate()->ToString().c_str(),
+                PClient->PeerCandidate->ToString().c_str(),
+                message->GetRemoteCandidate()->ToString().c_str());
+        PClient->PeerCandidate = message->GetRemoteCandidate();
+    }
+
+    LOGI("Receiving DO_P2P_CONNECT command from peer %s private port %d, "
+            "send back REPLY_P2P_CONNECT with key: %s via local candidate %s",
+            PClient->PeerCandidate->ToString().c_str(),
+            message->GetMessage()->u.p2p.up.p2p.myPrivatePort,
+            SERVANT_P2P_REPLY_MESSAGE,
+            PClient->mtransport->GetLocalCandidate()->ToString().c_str());
+
+    setTTL(PClient->mtransport->GetSocket(), 64);
+    for (int i = 0; i < 2; i++) {
+        // send p2p connect
+        Message msg;
+        memset(&msg, 0, sizeof(msg));
+        msg.type = CXM_P2P_MESSAGE_REPLY_P2P_CONNECT;
+        msg.u.p2p.up.p2pReply.yourPrivatePort = message->GetMessage()->u.p2p.up.p2p.myPrivatePort;
+        strncpy(msg.u.p2p.up.p2pReply.key, SERVANT_P2P_REPLY_MESSAGE, CLIENT_NAME_LENGTH);
+
+        int res = PClient->mtransport->SendTo(PClient->PeerCandidate,
+                (uint8_t *)&msg, sizeof(Message));
+        if (0 != res)
+            LOGE("Cannot send reply p2p connect to %s: %d",
+                    PClient->PeerCandidate->ToString().c_str(), res);
+    }
+}
+
+void ClientStateConnecting::OnReplyP2PConnect(shared_ptr<ReceiveMessage> message)
+{
+    int privatePort = message->GetMessage()->u.p2p.up.p2pReply.yourPrivatePort;
+    LOGI("Receive REPLY_P2P from different candidate via private port %d, update %s to %s",
+            privatePort,
+            PClient->PeerCandidate->ToString().c_str(),
+            message->GetRemoteCandidate()->ToString().c_str());
+    if (!PClient->PeerCandidate->Equal(message->GetRemoteCandidate())) {
+        PClient->PeerCandidate = message->GetRemoteCandidate();
+    }
+    int res = PClient->mtransport->UpdateLocalCandidateByPort(privatePort);
+    if (0 != res) {
+        LOGE("Cannot update transport candidate %s: %d",
+                message->GetLocalCandidate()->ToString().c_str(), res);
+    }
+
+    LOGI("Receiving REPLY_P2P_CONNECT command, send back REPLY_P2P_CONNECT. "
+            "P2P connection establis successfully between local %s and peer %s",
+            PClient->mtransport->GetLocalCandidate()->ToString().c_str(),
+            PClient->PeerCandidate->ToString().c_str());
+
+    for (int i = 0; i < 2; i++) {
+        // send p2p connect to remote candidate again
+        Message msg;
+        memset(&msg, 0, sizeof(msg));
+        msg.type = CXM_P2P_MESSAGE_REPLY_P2P_CONNECT;
+        strncpy(msg.u.p2p.up.p2pReply.key, SERVANT_P2P_REPLY_MESSAGE, CLIENT_NAME_LENGTH);
+
+        int res = PClient->mtransport->SendTo(PClient->PeerCandidate,
+                (uint8_t *)&msg, sizeof(Message));
+        if (0 != res)
+            LOGE("Cannot send REPLY_P2P_CONNECT to %s: %d",
+                    PClient->PeerCandidate->ToString().c_str(), res);
+    }
+
+    // stop timer
+    if (NULL != this->mtimer.get())
+        this->mtimer->Stop();
+
+    // hold on this reference to prevent self deleted
+    shared_ptr<ClientState> oldState =
+        PClient->SetStateInternal(SERVANT_CLIENT_CONNECTED);
+
+    // start peer keep alive
+    PClient->StartPeerKeepAlive();
+
+    // fire notify
+    PClient->FireOnConnectNofity();
 }
 
 void ClientStateConnecting::GenerateGuessList(

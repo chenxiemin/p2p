@@ -85,7 +85,7 @@ class UnifyEventThread : public Thread, public IRunnable
 	private: IEventSink *mpsink;
 
 	public: UnifyEventThread(const char *name = NULL) :
-		Thread(this, name), misRun(false) { }
+		Thread(this, name), misRun(false), meventQueue(0, 100) { }
 
 	public: virtual ~UnifyEventThread() { }
 

@@ -58,19 +58,17 @@ void ServantServer::OnData(shared_ptr<ReceiveData> data)
 		LOGE("Invalid message size: %d %d", data->GetLength(), (int)sizeof(Message));
 		return;
 	}
+#if 0
 	LOGD("Server receive message type: %d", message->GetMessage()->type);
+#endif
 
 	switch (message->GetMessage()->type) {
 	case CXM_P2P_MESSAGE_LOGIN:
 		OnLoginMessage(message);
 		break;
-	case CXM_P2P_MESSAGE_LOGIN_SUB: {
-		string clientName = message->GetMessage()->u.client.clientName;
-		shared_ptr<Candidate> clientCandidate = message->GetRemoteCandidate();
-		LOGD("Receive client %s login sub message from %s", clientName.c_str(),
-			clientCandidate->ToString().c_str());
+	case CXM_P2P_MESSAGE_LOGIN_SUB:
+        OnSubLoginMessage(message);
 		break;
-	}
 	case CXM_P2P_MESSAGE_LOGOUT:
 		OnLogoutMessage(message);
 		break;
@@ -78,8 +76,7 @@ void ServantServer::OnData(shared_ptr<ReceiveData> data)
 		OnConnectMessage(message);
 		break;
 	case CXM_P2P_MESSAGE_SERVER_KEEP_ALIVE:
-		LOGE("Client keep alive message from %s",
-			message->GetMessage()->u.client.clientName);
+        OnKeepAliveMessage(message);
 		break;
 	default:
 		LOGE("Unknown message type: %d", message->GetMessage()->type);
@@ -109,6 +106,14 @@ void ServantServer::OnLoginMessage(shared_ptr<ReceiveMessage> message)
 	Message msgReply;
 	msgReply.type = CXM_P2P_MESSAGE_LOGIN_REPLY;
 	this->mtransceiver->SendTo(clientCandidate, (uint8_t *)&msgReply, sizeof(Message));
+}
+
+void ServantServer::OnSubLoginMessage(std::shared_ptr<ReceiveMessage> message)
+{
+    string clientName = message->GetMessage()->u.client.clientName;
+    shared_ptr<Candidate> clientCandidate = message->GetRemoteCandidate();
+    LOGD("Receive client %s login sub message from %s", clientName.c_str(),
+            clientCandidate->ToString().c_str());
 }
 
 void ServantServer::OnLogoutMessage(std::shared_ptr<ReceiveMessage> message)
@@ -163,6 +168,18 @@ void ServantServer::OnConnectMessage(std::shared_ptr<ReceiveMessage> message)
 	LOGD("Sending REPLY_CONNECT to master %s %s and client %s %s",
 		masterClient.c_str(), mclientList[masterClient]->ToString().c_str(),
 		slaveClient.c_str(), mclientList[slaveClient]->ToString().c_str());
+}
+
+void ServantServer::OnKeepAliveMessage(std::shared_ptr<ReceiveMessage> message)
+{
+    string clientName = message->GetMessage()->u.client.clientName;
+    shared_ptr<Candidate> clientCandidate = message->GetRemoteCandidate();
+    LOGE("Client keep alive message from %s, update candidate from %s to %s",
+            clientName.c_str(), mclientList[clientName].get() == NULL ?
+            "null" : mclientList[clientName]->ToString().c_str(),
+            clientCandidate->ToString().c_str());
+
+    mclientList[clientName] = clientCandidate;
 }
 
 ServantClient::ServantClient(const char *ip, uint16_t port) :
