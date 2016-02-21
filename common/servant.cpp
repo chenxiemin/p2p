@@ -86,7 +86,7 @@ void ServantServer::OnData(shared_ptr<ReceiveData> data)
 
 void ServantServer::OnLoginMessage(shared_ptr<ReceiveMessage> message)
 {
-	string clientName = message->GetMessage()->u.client.clientName;
+	string clientName = message->GetMessage()->u.login.clientName;
 	shared_ptr<Candidate> clientCandidate = message->GetRemoteCandidate();
 
 	if (clientName.length() <= 0) {
@@ -110,7 +110,7 @@ void ServantServer::OnLoginMessage(shared_ptr<ReceiveMessage> message)
 
 void ServantServer::OnSubLoginMessage(std::shared_ptr<ReceiveMessage> message)
 {
-    string clientName = message->GetMessage()->u.client.clientName;
+    string clientName = message->GetMessage()->u.login.clientName;
     shared_ptr<Candidate> clientCandidate = message->GetRemoteCandidate();
     LOGD("Receive client %s login sub message from %s", clientName.c_str(),
             clientCandidate->ToString().c_str());
@@ -118,7 +118,7 @@ void ServantServer::OnSubLoginMessage(std::shared_ptr<ReceiveMessage> message)
 
 void ServantServer::OnLogoutMessage(std::shared_ptr<ReceiveMessage> message)
 {
-	string clientName = message->GetMessage()->u.client.clientName;
+	string clientName = message->GetMessage()->u.logout.clientName;
 	if (NULL != mclientList[clientName]) {
 		mclientList[clientName].reset();
 		LOGI("Client %s logout", clientName.c_str());
@@ -127,12 +127,12 @@ void ServantServer::OnLogoutMessage(std::shared_ptr<ReceiveMessage> message)
 
 void ServantServer::OnConnectMessage(std::shared_ptr<ReceiveMessage> message)
 {
-	string masterClient = message->GetMessage()->u.client.clientName;
+	string masterClient = message->GetMessage()->u.connect.clientName;
 	if (NULL == mclientList[masterClient].get()) {
-		LOGE("Cannot get master client: %s", message->GetMessage()->u.client.clientName);
+		LOGE("Cannot get master client: %s", masterClient.c_str());
 		return;
 	}
-	string slaveClient = message->GetMessage()->u.client.uc.connect.remoteName;
+	string slaveClient = message->GetMessage()->u.connect.remoteName;
 	if (NULL == mclientList[slaveClient].get()) {
 		LOGE("Cannot get slave client: %s", slaveClient.c_str());
 		return;
@@ -140,10 +140,10 @@ void ServantServer::OnConnectMessage(std::shared_ptr<ReceiveMessage> message)
 
 	Message msgReply;
 	msgReply.type = CXM_P2P_MESSAGE_REPLY_CONNECT;
-	msgReply.u.client.uc.replyConnect.remoteIp = mclientList[slaveClient]->Ip();
-	msgReply.u.client.uc.replyConnect.remotePort = mclientList[slaveClient]->Port();
-	msgReply.u.client.uc.replyConnect.peerRole = CXM_P2P_PEER_ROLE_MASTER;
-	strcpy(msgReply.u.client.uc.replyConnect.remoteName, slaveClient.c_str());
+	msgReply.u.replyConnect.remoteIp = mclientList[slaveClient]->Ip();
+	msgReply.u.replyConnect.remotePort = mclientList[slaveClient]->Port();
+	msgReply.u.replyConnect.peerRole = CXM_P2P_PEER_ROLE_MASTER;
+	strcpy(msgReply.u.replyConnect.remoteName, slaveClient.c_str());
 
 	int res = this->mtransceiver->SendTo(mclientList[masterClient],
 		(uint8_t *)&msgReply, sizeof(Message));
@@ -154,10 +154,10 @@ void ServantServer::OnConnectMessage(std::shared_ptr<ReceiveMessage> message)
 
 	memset(&msgReply, 0, sizeof(msgReply));
 	msgReply.type = CXM_P2P_MESSAGE_REPLY_CONNECT;
-	msgReply.u.client.uc.replyConnect.remoteIp = mclientList[masterClient]->Ip();
-	msgReply.u.client.uc.replyConnect.remotePort = mclientList[masterClient]->Port();
-	msgReply.u.client.uc.replyConnect.peerRole = CXM_P2P_PEER_ROLE_SLAVE;
-	strcpy(msgReply.u.client.uc.replyConnect.remoteName, masterClient.c_str());
+	msgReply.u.replyConnect.remoteIp = mclientList[masterClient]->Ip();
+	msgReply.u.replyConnect.remotePort = mclientList[masterClient]->Port();
+	msgReply.u.replyConnect.peerRole = CXM_P2P_PEER_ROLE_SLAVE;
+	strcpy(msgReply.u.replyConnect.remoteName, masterClient.c_str());
 
 	res = this->mtransceiver->SendTo(mclientList[slaveClient],
 		(uint8_t *)&msgReply, sizeof(Message));
@@ -172,7 +172,7 @@ void ServantServer::OnConnectMessage(std::shared_ptr<ReceiveMessage> message)
 
 void ServantServer::OnKeepAliveMessage(std::shared_ptr<ReceiveMessage> message)
 {
-    string clientName = message->GetMessage()->u.client.clientName;
+    string clientName = message->GetMessage()->u.keepAlive.clientName;
     shared_ptr<Candidate> clientCandidate = message->GetRemoteCandidate();
     LOGE("Client keep alive message from %s, update candidate from %s to %s",
             clientName.c_str(), mclientList[clientName].get() == NULL ?
@@ -359,7 +359,7 @@ void ServantClient::OnEvent(int type, shared_ptr<IEventArgs> args)
 		// request peer address from server
 		Message msg;
 		msg.type = CXM_P2P_MESSAGE_SERVER_KEEP_ALIVE;
-		strcpy(msg.u.client.clientName, this->GetName().c_str());
+		strcpy(msg.u.keepAlive.clientName, this->GetName().c_str());
 
 		int res = this->mtransport->SendTo(this->mserverCandidate,
 			(uint8_t *)&msg, sizeof(Message));
@@ -377,7 +377,7 @@ void ServantClient::OnEvent(int type, shared_ptr<IEventArgs> args)
 		// request peer address from server
 		Message msg;
 		msg.type = CXM_P2P_MESSAGE_PEER_KEEP_ALIVE;
-		strcpy(msg.u.client.clientName, this->GetName().c_str());
+		strcpy(msg.u.keepAlive.clientName, this->GetName().c_str());
 
 		int res = this->mtransport->SendTo(PeerCandidate,
 			(uint8_t *)&msg, sizeof(Message));
@@ -404,7 +404,7 @@ void ServantClient::OnEvent(int type, shared_ptr<IEventArgs> args)
 		}
 		if (message->GetMessage()->type == CXM_P2P_MESSAGE_PEER_KEEP_ALIVE) {
 			LOGD("Client %s receive peer keep alive message from %s",
-				this->GetName().c_str(), message->GetMessage()->u.client.clientName);
+				this->GetName().c_str(), message->GetMessage()->u.keepAlive.clientName);
 			mlastPeerKeepAliveTime = system_clock::now();
 			break;
 		}

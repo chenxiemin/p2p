@@ -28,8 +28,9 @@ namespace p2p {
 class ServantClient;
 class ReceiveMessage;
 
-struct ClientState
+class ClientState
 {
+public:
 	SERVANT_CLIENT_STATE_T State;
 	ServantClient *PClient;
 
@@ -48,8 +49,9 @@ struct ClientState
 	virtual void OnStateForeground() { }
 };
 
-struct ClientStateLogout : public ClientState
+class ClientStateLogout : public ClientState
 {
+public:
 	SERVANT_CLIENT_STATE_T State;
 
 	ClientStateLogout(ServantClient *client) :
@@ -58,8 +60,9 @@ struct ClientStateLogout : public ClientState
 	virtual int Login();
 };
 
-struct ClientStateLogining : public ClientState, public cxm::util::ITimerSink
+class ClientStateLogining : public ClientState, public cxm::util::ITimerSink
 {
+public:
 	SERVANT_CLIENT_STATE_T State;
 	// timer for triggering connecting request repeativity
 	private: std::shared_ptr<cxm::util::Timer> mtimer;
@@ -82,8 +85,9 @@ struct ClientStateLogining : public ClientState, public cxm::util::ITimerSink
 	virtual void OnTimer();
 };
 
-struct ClientStateLogin : public ClientState
+class ClientStateLogin : public ClientState
 {
+public:
 	SERVANT_CLIENT_STATE_T State;
 
 	ClientStateLogin(ServantClient *client) :
@@ -96,8 +100,9 @@ struct ClientStateLogin : public ClientState
 	virtual void OnStateForeground();
 };
 
-struct ClientStateLogouting : public ClientState
+class ClientStateLogouting : public ClientState
 {
+public:
 	SERVANT_CLIENT_STATE_T State;
 
 	ClientStateLogouting(ServantClient *client) :
@@ -106,8 +111,9 @@ struct ClientStateLogouting : public ClientState
 	virtual void Logout();
 };
 
-struct ClientStateConnecting : public ClientState, public cxm::util::ITimerSink
+class ClientStateConnecting : public ClientState, public cxm::util::ITimerSink
 {
+public:
 	SERVANT_CLIENT_STATE_T State;
 	// timer for triggering connecting request repeativity
 	std::shared_ptr<cxm::util::Timer> mtimer;
@@ -135,8 +141,9 @@ struct ClientStateConnecting : public ClientState, public cxm::util::ITimerSink
     private: void OnReplyP2PConnect(std::shared_ptr<ReceiveMessage> message);
 };
 
-struct ClientStateConnected : public ClientState
+class ClientStateConnected : public ClientState
 {
+public:
 	SERVANT_CLIENT_STATE_T State;
 	uint8_t Buffer[TransceiverU::MAX_RECEIVE_BUFFER_SIZE];
 
@@ -149,8 +156,9 @@ struct ClientStateConnected : public ClientState
 	virtual void Disconnect();
 };
 
-struct ClientStateDisconnecting : public ClientState
+class ClientStateDisconnecting : public ClientState
 {
+public:
 	SERVANT_CLIENT_STATE_T State;
 
 	ClientStateDisconnecting(ServantClient *client) :

@@ -8,7 +8,7 @@
 #include "candidate.h"
 #include "transceiver.h"
 
-#define CLIENT_NAME_LENGTH 31
+#define CLIENT_NAME_LENGTH 15
 
 typedef enum {
 	CXM_P2P_MESSAGE_UNKNOWN = 0,
@@ -38,7 +38,8 @@ typedef enum {
 
 typedef enum {
     CXM_P2P_PEER_ROLE_MASTER, // caller
-    CXM_P2P_PEER_ROLE_SLAVE // callee
+    CXM_P2P_PEER_ROLE_SLAVE, // callee
+	CXM_P2P_PEER_ROLE_COUNT
 } CXM_P2P_PEER_ROLE_T;
 
 typedef enum {
@@ -59,40 +60,54 @@ struct Message
 	union {
 		struct {
 			char clientName[CLIENT_NAME_LENGTH + 1];
-			union {
-				struct {
-					uint32_t clientPrivateIp;
-					uint16_t clientPrivatePort;
-				} login;
-				struct {
-
-				} logout;
-				struct {
-					char remoteName[CLIENT_NAME_LENGTH + 1];
-				} connect;
-				struct {
-					uint32_t remoteIp;
-					uint16_t remotePort;
-                    uint16_t peerRole;
-					char remoteName[CLIENT_NAME_LENGTH + 1];
-				} replyConnect;
-			} uc;
-		} client;
+			uint32_t clientPrivateIp;
+			uint16_t clientPrivatePort;
+		} login;
 
 		struct {
-			union {
-				uint16_t userDataLength;
-				struct {
-					char key[CLIENT_NAME_LENGTH + 1];
-                    uint16_t myPrivatePort;
-				} p2p;
-				struct {
-					char key[CLIENT_NAME_LENGTH + 1];
-                    uint16_t yourPublicPort;
-                    uint16_t yourPrivatePort;
-				} p2pReply;
-			} up;
-		} p2p;
+			char clientName[CLIENT_NAME_LENGTH + 1];
+		} logout;
+
+		struct {
+			char clientName[CLIENT_NAME_LENGTH + 1];
+			char remoteName[CLIENT_NAME_LENGTH + 1];
+		} connect;
+
+		struct {
+			uint32_t remoteIp;
+			uint16_t remotePort;
+			uint16_t peerRole;
+			char remoteName[CLIENT_NAME_LENGTH + 1];
+		} replyConnect;
+
+		struct {
+			char key[CLIENT_NAME_LENGTH + 1];
+			// the private port which the master send the p2p packet
+			// at the sym nat, every packet the master send to the slave
+			// may be mapped to the different public port
+			// the slave can only see the public port of the udp packet
+			// this port will be send back from slave to the master
+			// in the p2pReply.yourPrivatePort to let the master know
+			// which private port the master used can send packet to the slave
+			uint16_t masterPrivatePort;
+		} p2pConnect;
+
+		struct {
+			char key[CLIENT_NAME_LENGTH + 1];
+			// the public port which slave see from the master
+			uint16_t masterPublicPort;
+			// the private port the master send
+			// pass through p2pConnect.myPrivatePort
+			uint16_t masterPrivatePort;
+		} p2pReply;
+
+		struct {
+			char clientName[CLIENT_NAME_LENGTH + 1];
+		} keepAlive;
+
+		struct {
+			uint16_t userDataLength;
+		} p2pData;
 	} u;
 };
 

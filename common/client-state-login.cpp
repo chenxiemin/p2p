@@ -26,17 +26,17 @@ int ClientStateLogin::OnMessage(std::shared_ptr<ReceiveMessage> message)
     // TODO authentication
 
     // save remote name
-    PClient->SetRemote(msg->u.client.uc.replyConnect.remoteName);
+    PClient->SetRemote(msg->u.replyConnect.remoteName);
 
     // should be connected by somebody, the slave role
     PClient->mpeerRole = (CXM_P2P_PEER_ROLE_T)
-        message->GetMessage()->u.client.uc.replyConnect.peerRole;
+        message->GetMessage()->u.replyConnect.peerRole;
     PClient->PeerCandidate = shared_ptr<Candidate>(new Candidate(
-                message->GetMessage()->u.client.uc.replyConnect.remoteIp,
-                message->GetMessage()->u.client.uc.replyConnect.remotePort));
+                message->GetMessage()->u.replyConnect.remoteIp,
+                message->GetMessage()->u.replyConnect.remotePort));
 
     LOGI("Receive REPLY_CONNECT request on state login: peer name %s candidate %s role %d",
-            msg->u.client.uc.replyConnect.remoteName,
+            msg->u.replyConnect.remoteName,
             PClient->PeerCandidate->ToString().c_str(),
             PClient->mpeerRole);
 

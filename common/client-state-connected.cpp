@@ -31,7 +31,7 @@ int ClientStateConnected::SendTo(const uint8_t *buf, int len)
 
 	Message msg;
 	msg.type = CXM_P2P_MESSAGE_USER_DATA;
-	msg.u.p2p.up.userDataLength = len;
+	msg.u.p2pData.userDataLength = len;
 	memcpy(Buffer, &msg, sizeof(Message));
 	memcpy(Buffer + sizeof(Message), buf, len);
 

@@ -100,8 +100,8 @@ void ClientStateConnecting::OnTimer()
     // so that server can send the message back to the two peers
     Message msg;
     msg.type = CXM_P2P_MESSAGE_CONNECT;
-    strncpy(msg.u.client.clientName, PClient->mname.c_str(), CLIENT_NAME_LENGTH);
-    strncpy(msg.u.client.uc.connect.remoteName, PClient->mremotePeer.c_str(), CLIENT_NAME_LENGTH);
+    strncpy(msg.u.connect.clientName, PClient->mname.c_str(), CLIENT_NAME_LENGTH);
+    strncpy(msg.u.connect.remoteName, PClient->mremotePeer.c_str(), CLIENT_NAME_LENGTH);
 
     int res = PClient->mtransport->SendTo(PClient->mserverCandidate,
             (uint8_t *)&msg, sizeof(Message));
@@ -126,10 +126,10 @@ int ClientStateConnecting::OnMessage(shared_ptr<ReceiveMessage> message)
 #endif
 
         PClient->mpeerRole = (CXM_P2P_PEER_ROLE_T)
-            message->GetMessage()->u.client.uc.replyConnect.peerRole;
+            message->GetMessage()->u.replyConnect.peerRole;
         PClient->PeerCandidate = shared_ptr<Candidate>(new Candidate(
-                    message->GetMessage()->u.client.uc.replyConnect.remoteIp,
-                    message->GetMessage()->u.client.uc.replyConnect.remotePort));
+                    message->GetMessage()->u.replyConnect.remoteIp,
+                    message->GetMessage()->u.replyConnect.remotePort));
 
         LOGD("Receive REPLY_CONNECT with role %d at peer candidate %s",
                 PClient->mpeerRole, PClient->PeerCandidate->ToString().c_str());
@@ -174,7 +174,7 @@ void ClientStateConnecting::OnReplyConnect()
     Message msg;
     memset(&msg, 0, sizeof(msg));
     msg.type = CXM_P2P_MESSAGE_DO_P2P_CONNECT;
-    strncpy(msg.u.p2p.up.p2p.key, SERVANT_P2P_MESSAGE, CLIENT_NAME_LENGTH);
+    strncpy(msg.u.p2pConnect.key, SERVANT_P2P_MESSAGE, CLIENT_NAME_LENGTH);
 
     if (CXM_P2P_PEER_ROLE_SLAVE == PClient->mpeerRole) {
         // slave peer use short TTL udp packet to open the port
@@ -223,7 +223,7 @@ void ClientStateConnecting::OnReplyConnect()
                 PClient->mtransport->UpdateLocalCandidateByPort(
                         (*iter)->MCandidate->Port());
 
-                msg.u.p2p.up.p2p.myPrivatePort = (*iter)->MCandidate->Port();
+                msg.u.p2pConnect.masterPrivatePort = (*iter)->MCandidate->Port();
                 int res = PClient->mtransport->SendTo(PClient->PeerCandidate,
                         (uint8_t *)&msg, sizeof(Message));
                 if (0 != res)
@@ -250,7 +250,7 @@ void ClientStateConnecting::OnDoP2PConnect(shared_ptr<ReceiveMessage> message)
     LOGI("Receiving DO_P2P_CONNECT command from peer %s private port %d, "
             "send back REPLY_P2P_CONNECT with key: %s via local candidate %s",
             PClient->PeerCandidate->ToString().c_str(),
-            message->GetMessage()->u.p2p.up.p2p.myPrivatePort,
+            message->GetMessage()->u.p2pConnect.masterPrivatePort,
             SERVANT_P2P_REPLY_MESSAGE,
             PClient->mtransport->GetLocalCandidate()->ToString().c_str());
 
@@ -260,8 +260,8 @@ void ClientStateConnecting::OnDoP2PConnect(shared_ptr<ReceiveMessage> message)
         Message msg;
         memset(&msg, 0, sizeof(msg));
         msg.type = CXM_P2P_MESSAGE_REPLY_P2P_CONNECT;
-        msg.u.p2p.up.p2pReply.yourPrivatePort = message->GetMessage()->u.p2p.up.p2p.myPrivatePort;
-        strncpy(msg.u.p2p.up.p2pReply.key, SERVANT_P2P_REPLY_MESSAGE, CLIENT_NAME_LENGTH);
+        msg.u.p2pReply.masterPrivatePort = message->GetMessage()->u.p2pConnect.masterPrivatePort;
+        strncpy(msg.u.p2pReply.key, SERVANT_P2P_REPLY_MESSAGE, CLIENT_NAME_LENGTH);
 
         int res = PClient->mtransport->SendTo(PClient->PeerCandidate,
                 (uint8_t *)&msg, sizeof(Message));
@@ -273,7 +273,7 @@ void ClientStateConnecting::OnDoP2PConnect(shared_ptr<ReceiveMessage> message)
 
 void ClientStateConnecting::OnReplyP2PConnect(shared_ptr<ReceiveMessage> message)
 {
-    int privatePort = message->GetMessage()->u.p2p.up.p2pReply.yourPrivatePort;
+    int privatePort = message->GetMessage()->u.p2pReply.masterPrivatePort;
     LOGI("Receive REPLY_P2P from different candidate via private port %d, update %s to %s",
             privatePort,
             PClient->PeerCandidate->ToString().c_str(),
@@ -297,7 +297,7 @@ void ClientStateConnecting::OnReplyP2PConnect(shared_ptr<ReceiveMessage> message
         Message msg;
         memset(&msg, 0, sizeof(msg));
         msg.type = CXM_P2P_MESSAGE_REPLY_P2P_CONNECT;
-        strncpy(msg.u.p2p.up.p2pReply.key, SERVANT_P2P_REPLY_MESSAGE, CLIENT_NAME_LENGTH);
+        strncpy(msg.u.p2pReply.key, SERVANT_P2P_REPLY_MESSAGE, CLIENT_NAME_LENGTH);
 
         int res = PClient->mtransport->SendTo(PClient->PeerCandidate,
                 (uint8_t *)&msg, sizeof(Message));
@@ -324,7 +324,7 @@ void ClientStateConnecting::OnReplyP2PConnect(shared_ptr<ReceiveMessage> message
 void ClientStateConnecting::GenerateGuessList(
         shared_ptr<Candidate> candidate, int generateSize, int minPort)
 {
-    srand(time(NULL));
+    srand((unsigned int)time(NULL));
     mcandidateGuessList.clear();
 
     // port - 10 ~ port + 10, but port at the first one
@@ -337,7 +337,7 @@ void ClientStateConnecting::GenerateGuessList(
         mcandidateGuessList.push_back(shared_ptr<Candidate>(
                     new Candidate(candidate->Ip(), candidate->Port() + i)));
 
-    while (mcandidateGuessList.size() < generateSize) {
+    while (mcandidateGuessList.size() < (size_t)generateSize) {
         int randPort = (rand() + rand()) % 65536;
         if (randPort < minPort)
             continue;

@@ -18,7 +18,7 @@ void ClientStateLogouting::Logout()
 	// send message
 	Message msg;
 	msg.type = CXM_P2P_MESSAGE_LOGOUT;
-	strncpy(msg.u.client.clientName, PClient->mname.c_str(), CLIENT_NAME_LENGTH);
+	strncpy(msg.u.logout.clientName, PClient->mname.c_str(), CLIENT_NAME_LENGTH);
 
 	int res = PClient->mtransport->SendTo(PClient->mserverCandidate,
 		(uint8_t *)&msg, sizeof(Message));

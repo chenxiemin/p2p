@@ -76,9 +76,9 @@ void ClientStateLogining::OnTimer()
 	Message msg;
 	memset(&msg, 0, sizeof(msg));
 	msg.type = CXM_P2P_MESSAGE_LOGIN;
-	strncpy(msg.u.client.clientName, PClient->mname.c_str(), CLIENT_NAME_LENGTH);
-	msg.u.client.uc.login.clientPrivateIp = 0; // TODO set private candidate
-	msg.u.client.uc.login.clientPrivatePort = 0;
+	strncpy(msg.u.login.clientName, PClient->mname.c_str(), CLIENT_NAME_LENGTH);
+	msg.u.login.clientPrivateIp = 0; // TODO set private candidate
+	msg.u.login.clientPrivatePort = 0;
 
 	PClient->mtransport->SendTo(PClient->mserverCandidate,
 		(uint8_t *)&msg, sizeof(Message));

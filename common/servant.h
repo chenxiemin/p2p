@@ -55,8 +55,8 @@ class ReceiveMessage : public cxm::util::IEventArgs
 			return message;
 		Message *pmsg = (Message *)receiveData->GetBuffer();
 		if (CXM_P2P_MESSAGE_USER_DATA == pmsg->type) {
-			if (pmsg->u.p2p.up.userDataLength + sizeof(Message) != receiveData->GetLength()) {
-				LOGE("Invalid USER_DATA packet size: %d", pmsg->u.p2p.up.userDataLength);
+			if (pmsg->u.p2pData.userDataLength + sizeof(Message) != receiveData->GetLength()) {
+				LOGE("Invalid USER_DATA packet size: %d", pmsg->u.p2pData.userDataLength);
 				return message;
 			}
 		}
